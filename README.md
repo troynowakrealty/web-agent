@@ -1,5 +1,7 @@
 # 007 Agent
 
+<img width="1425" alt="screenshot" src="https://github.com/user-attachments/assets/f78754d5-1bd1-489b-9720-9d5867abd6d4" />
+
 > **Note**: This project is for research and non-commercial use only.
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
