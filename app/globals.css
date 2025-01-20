@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0A0F1D;
+  --foreground: #E5B64A;
+  --accent: #C4A24D;
+  --text: #E5E5E5;
+  --danger: #D4262E;
+  --success: #1A936F;
+}
+
+body {
+  color: var(--text);
+  background: var(--background);
+  font-family: var(--font-geist-mono), monospace;
+}
+
+/* Custom Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(229, 182, 74, 0.1);
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* Sophisticated scan effect */
+.scan-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-effect::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(229, 182, 74, 0.15),
+    transparent
+  );
+  animation: scan 3s linear infinite;
+}
+
+@keyframes scan {
+  0% {
+    top: -100%;
+  }
+  100% {
+    top: 200%;
+  }
+}
+
+/* Glowing effects */
+.glow-gold {
+  box-shadow: 0 0 10px rgba(229, 182, 74, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-gold:hover {
+  box-shadow: 0 0 20px rgba(229, 182, 74, 0.5);
+}
+
+/* Mission status animations */
+@keyframes pulse-gold {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.mission-active {
+  animation: pulse-gold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Target reticle animation */
+@keyframes reticle-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.reticle {
+  animation: reticle-spin 10s linear infinite;
+}
