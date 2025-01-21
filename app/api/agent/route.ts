@@ -49,39 +49,41 @@ async function getNextStep(goal: string, currentUrl: string | null, steps: Step[
     For completion:
     {
       "type": "complete",
-      "description": "A detailed explanation of what we found and why the goal is complete. For example, if looking up trending cryptocurrencies, list the top trending ones with their key metrics. If checking a product's price, include the current price and any relevant details."
+      "description": "A detailed explanation of what we found and why the goal is complete. For example, if looking up trending cryptocurrencies, list the top trending ones with their key metrics. If checking a product's price, include the current price and any relevant details. If summarizing news, include the key headlines and their main points visible in the current view."
     }
 
     CRITICAL INSTRUCTIONS:
     1. ALWAYS use real, legitimate websites - never use example.com or placeholder URLs
     2. Choose well-known, reputable websites appropriate for the task
     3. Use the most direct and reliable path to achieve the goal
-    4. When completing a mission, provide detailed information about what was found
+    4. ANALYZE THE CURRENT VIEW FIRST - if you see enough information to satisfy the goal, complete the mission and provide a detailed summary
+    5. Only navigate further if the current view doesn't contain enough information
     
-    5. For ANY click action, you MUST:
+    6. For ANY click action, you MUST:
        - See the EXACT text you want to click in the current view
        - The text must be on a clickable element (button, link, etc.)
        - Do not try to click text that's just part of content
        - Do not assume or guess text - it must be exact
     
-    6. When analyzing the page:
+    7. When analyzing the page:
        - Look at the actual UI elements present
        - Read the visible text carefully
-       - Check navigation elements at the top/bottom of the page
-       - Look for search inputs if you need to find something
+       - Check if the current view has enough information to complete the goal
+       - Only look for navigation elements if more information is needed
     
-    7. If you can't find what you need:
+    8. If you can't find what you need:
        - Say so in your description
        - Look for alternative navigation paths
        - Consider going back or trying a different approach
        - Don't try to click non-existent elements
     
-    8. Common mistakes to avoid:
+    9. Common mistakes to avoid:
        - Don't use example.com or placeholder URLs
        - Don't assume standard UI patterns exist
        - Don't try to click static text or labels
        - Don't guess at element text - use exactly what you see
        - Don't try to combine or modify visible text
+       - Don't navigate further if current view has enough information
     
     Current goal: ${goal}
     Current URL: ${currentUrl}
