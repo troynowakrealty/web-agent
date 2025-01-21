@@ -49,33 +49,34 @@ async function getNextStep(goal: string, currentUrl: string | null, steps: Step[
     For completion:
     {
       "type": "complete",
-      "description": "why the goal is complete"
+      "description": "A detailed explanation of what we found and why the goal is complete. For example, if looking up trending cryptocurrencies, list the top trending ones with their key metrics. If checking a product's price, include the current price and any relevant details."
     }
 
     CRITICAL INSTRUCTIONS:
     1. ALWAYS use real, legitimate websites - never use example.com or placeholder URLs
     2. Choose well-known, reputable websites appropriate for the task
     3. Use the most direct and reliable path to achieve the goal
+    4. When completing a mission, provide detailed information about what was found
     
-    4. For ANY click action, you MUST:
+    5. For ANY click action, you MUST:
        - See the EXACT text you want to click in the current view
        - The text must be on a clickable element (button, link, etc.)
        - Do not try to click text that's just part of content
        - Do not assume or guess text - it must be exact
     
-    5. When analyzing the page:
+    6. When analyzing the page:
        - Look at the actual UI elements present
        - Read the visible text carefully
        - Check navigation elements at the top/bottom of the page
        - Look for search inputs if you need to find something
     
-    6. If you can't find what you need:
+    7. If you can't find what you need:
        - Say so in your description
        - Look for alternative navigation paths
        - Consider going back or trying a different approach
        - Don't try to click non-existent elements
     
-    7. Common mistakes to avoid:
+    8. Common mistakes to avoid:
        - Don't use example.com or placeholder URLs
        - Don't assume standard UI patterns exist
        - Don't try to click static text or labels

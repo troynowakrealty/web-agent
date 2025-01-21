@@ -20,6 +20,8 @@ export default function Agent() {
     reset
   } = useAgent();
 
+  console.log(steps);
+
   // Auto-scroll timeline when new steps are added
   const scrollToBottom = () => {
     if (timelineRef.current) {
@@ -79,7 +81,7 @@ export default function Agent() {
               ref={timelineRef} 
               className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#E5B64A] scrollbar-track-[#E5B64A]/10"
             >
-              {steps.map((step, index) => (
+              {steps.filter(step => step.type !== 'complete').map((step, index) => (
                 <div
                   key={index}
                   className={clsx(
@@ -118,9 +120,19 @@ export default function Agent() {
               )}
 
               {isComplete && (
-                <div className="mb-2 p-3 rounded-lg border border-green-500 bg-green-500/10">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-green-500">Mission Complete!</span>
+                <div className="mb-2 p-4 rounded-lg border border-emerald-500 bg-emerald-500/10">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center border border-emerald-500">
+                        <span className="text-xs text-emerald-500">✓</span>
+                      </div>
+                      <span className="text-sm font-bold text-emerald-500">Mission Complete!</span>
+                    </div>
+                    <div className="ml-8 pl-4 border-l-2 border-emerald-500/30">
+                      <p className="text-sm text-emerald-500/90 whitespace-pre-wrap">
+                        {steps.find(step => step.type === 'complete')?.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -210,7 +222,7 @@ export default function Agent() {
           <div className="flex-1 relative bg-black/50 overflow-auto">
             {currentUrl ? (
               <div className="min-h-full">
-                {screenshot || isComplete ? (
+                {(screenshot && (isComplete || isProcessing)) ? (
                   <img 
                     src={`data:image/jpeg;base64,${screenshot}`}
                     alt="Current webpage"

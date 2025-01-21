@@ -88,7 +88,8 @@ export function useAgent() {
         isProcessing: false,
         isComplete: true,
         currentUrl: response.currentUrl,
-        screenshot: response.screenshot
+        screenshot: response.screenshot,
+        steps: [...prev.steps, response.nextStep]
       }));
       return;
     }
