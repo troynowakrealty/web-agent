@@ -196,7 +196,7 @@ export default function Agent() {
           <div className="flex-1 relative bg-black/50 overflow-auto">
             {currentUrl ? (
               <div className="min-h-full">
-                {screenshot ? (
+                {screenshot || isComplete ? (
                   <img 
                     src={`data:image/jpeg;base64,${screenshot}`}
                     alt="Current webpage"
