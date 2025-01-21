@@ -109,7 +109,7 @@ async function getNextStep(goal: string, currentUrl: string | null, steps: Step[
   const response = await openai.chat.completions.create({
     model: config.openai.model,
     messages: [systemMessage, userMessage],
-    temperature: 0.5,
+    temperature: 0.1,
     response_format: { type: "json_object" }
   });
 
