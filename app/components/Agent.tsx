@@ -220,22 +220,13 @@ export default function Agent() {
             )}
           </div>
           <div className="flex-1 relative bg-black/50 overflow-auto">
-            {currentUrl ? (
+            {currentUrl && screenshot ? (
               <div className="min-h-full">
-                {(screenshot && (isComplete || isProcessing)) ? (
-                  <img 
-                    src={`data:image/jpeg;base64,${screenshot}`}
-                    alt="Current webpage"
-                    className="w-full"
-                  />
-                ) : (
-                  <iframe
-                    src={currentUrl}
-                    className="w-full h-full border-0"
-                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                    referrerPolicy="no-referrer"
-                  />
-                )}
+                <img 
+                  src={`data:image/jpeg;base64,${screenshot}`}
+                  alt="Current webpage"
+                  className="w-full h-full object-contain"
+                />
               </div>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -247,7 +238,9 @@ export default function Agent() {
                       <path d="M48 0V96M0 48H96" stroke="#E5B64A" strokeWidth="2"/>
                     </svg>
                   </div>
-                  <p className="text-xl text-[#E5B64A] font-bold tracking-wider">AWAITING MISSION BRIEFING...</p>
+                  <p className="text-xl text-[#E5B64A] font-bold tracking-wider">
+                    {currentUrl ? 'PROCESSING MISSION...' : 'AWAITING MISSION BRIEFING...'}
+                  </p>
                 </div>
               </div>
             )}

@@ -405,7 +405,8 @@ export async function POST(req: Request) {
       return NextResponse.json({
         nextStep,
         currentUrl,
-        isComplete: true
+        isComplete: true,
+        screenshot
       });
     }
 
