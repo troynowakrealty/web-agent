@@ -135,14 +135,28 @@ export default function Agent() {
                 <label htmlFor="goal" className="block text-sm mb-2 text-[#E5B64A]/90">
                   ENTER MISSION PARAMETERS:
                 </label>
-                <input
-                  type="text"
+                <textarea
                   id="goal"
                   value={goalInput}
-                  onChange={(e) => setGoalInput(e.target.value)}
-                  className="w-full bg-black/50 border border-[#E5B64A]/30 rounded px-3 py-2 text-white"
+                  onChange={(e) => {
+                    setGoalInput(e.target.value);
+                    // Reset height to auto to properly calculate scroll height
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (goalInput.trim() && !isProcessing) {
+                        handleSubmit(e);
+                      }
+                    }
+                  }}
+                  rows={1}
+                  className="w-full bg-black/50 border border-[#E5B64A]/30 rounded px-3 py-2 text-white resize-none overflow-hidden"
                   placeholder="Enter your goal..."
                   disabled={isProcessing}
+                  style={{ minHeight: '2.5rem' }}
                 />
               </div>
               <div className="flex gap-2">
