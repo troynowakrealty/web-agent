@@ -8,6 +8,44 @@
 
 A web automation system that uses AI with vision capabilities and Puppeteer to achieve user-defined goals through autonomous web navigation. Supports both OpenAI and Ollama as AI providers.
 
+## Quick Start
+
+1. **Clone and Install**
+   ```bash
+   git clone https://github.com/GPT-Protocol/007-agent.git
+   cd 007-agent
+   npm install
+   ```
+
+2. **Configure**
+   Create a `.env` file in the root directory:
+   ```bash
+   # Choose your AI provider
+   AI_PROVIDER=openai  # or 'ollama'
+
+   # If using OpenAI
+   OPENAI_API_KEY=your-api-key-here
+   OPENAI_MODEL=gpt-4o-mini
+   OPENAI_VISION_MODEL=gpt-4-vision-preview
+
+   # If using Ollama
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=llama3.1
+   OLLAMA_VISION_MODEL=llava
+   ```
+
+3. **Run**
+   ```bash
+   npm run dev
+   ```
+
+4. **Use**
+   - Open http://localhost:3000 in your browser
+   - Enter a goal in the mission parameters (e.g., "Find me a good NFT from Rarible")
+   - Click "INITIALIZE MISSION"
+
+Detailed documentation, architecture, and advanced configuration options are available below.
+
 ## Features
 
 - **Multiple AI Providers**: 
