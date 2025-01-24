@@ -6,7 +6,17 @@
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-A web automation system that uses GPT-4 with vision capabilities and Puppeteer to achieve user-defined goals through autonomous web navigation.
+A web automation system that uses AI with vision capabilities and Puppeteer to achieve user-defined goals through autonomous web navigation. Supports both OpenAI and Ollama as AI providers.
+
+## Features
+
+- **Multiple AI Providers**: 
+  - OpenAI (GPT-4V)
+  - Ollama (Local models with vision capabilities)
+- **Vision-Enhanced Navigation**: Uses AI vision to analyze and interact with web pages
+- **Autonomous Decision Making**: Makes intelligent decisions based on visual and textual context
+- **Real-Time Feedback**: Shows current status, steps, and visual feedback
+- **Configurable Models**: Choose between different models for both chat and vision tasks
 
 ## License
 
@@ -37,6 +47,7 @@ The GPL-3.0 license ensures that all versions of the software remain free and op
    - Main interface for user interaction
    - Displays current status, steps taken, and execution timeline
    - Shows visual feedback of current webpage state
+   - Displays active AI provider and model information
    - Uses the `useAgent` hook for state management and API interactions
 
 2. **Agent Hook (`app/hooks/useAgent.ts`)**
@@ -52,11 +63,24 @@ The GPL-3.0 license ensures that all versions of the software remain free and op
      - `startMission`: Initiates a new goal
      - `reset`: Clears current state
 
-3. **API Endpoint (`app/api/agent/route.ts`)**
+3. **AI Providers**
+   - Modular provider system supporting multiple AI backends
+   - Each provider implements a common interface:
+     ```typescript
+     interface AIProvider {
+       chat(messages: ChatMessage[]): Promise<string>;
+       chatWithVision(messages: ChatMessage[], imageBase64: string): Promise<string>;
+     }
+     ```
+   - Supported providers:
+     - **OpenAI Provider**: Uses GPT-4V for vision tasks
+     - **Ollama Provider**: Uses local models with vision capabilities
+
+4. **API Endpoint (`app/api/agent/route.ts`)**
    - Handles step execution and decision making
    - Three-phase process:
      1. **Vision Phase**: Takes screenshots of current page state
-     2. **Decision Phase**: Uses GPT-4 with vision to analyze and determine next step
+     2. **Decision Phase**: Uses AI with vision to analyze and determine next step
      3. **Execution Phase**: Uses Puppeteer to execute the step
 
 ### Step Execution Flow
@@ -74,7 +98,7 @@ The GPL-3.0 license ensures that all versions of the software remain free and op
 
 2. **Vision-Enhanced Navigation**
    - Takes full-page screenshots after each step
-   - Sends screenshots to GPT-4 for visual analysis
+   - Sends screenshots to AI for visual analysis
    - Makes decisions based on actual visible elements
    - Ensures accurate element selection and interaction
 
@@ -191,12 +215,20 @@ The GPL-3.0 license ensures that all versions of the software remain free and op
 
 The system can be configured using environment variables. Copy `.env.example` to `.env` and adjust the values:
 
-### OpenAI Configuration
+### AI Provider Configuration
 ```bash
-# Your OpenAI API key
+# Choose AI provider: 'openai' or 'ollama'
+AI_PROVIDER=openai
+
+# OpenAI Configuration (if using OpenAI provider)
 OPENAI_API_KEY=your-api-key-here
-# Model to use (defaults to gpt-4o-mini)
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_VISION_MODEL=gpt-4-vision-preview
+
+# Ollama Configuration (if using Ollama provider)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+OLLAMA_VISION_MODEL=llava
 ```
 
 ### Development Features
@@ -247,7 +279,7 @@ When developing or debugging, you can enable additional features:
 3. The system will:
    - Break down the goal into steps
    - Take screenshots of each state
-   - Use GPT-4 vision to analyze the page
+   - Use AI vision to analyze the page
    - Execute each step autonomously
    - Display progress in real-time
    - Handle errors gracefully
