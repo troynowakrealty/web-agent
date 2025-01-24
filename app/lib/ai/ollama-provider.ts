@@ -71,7 +71,7 @@ export class OllamaProvider implements AIProvider {
           return {
             ...msg,
             content: Array.isArray(msg.content) ? msg.content : [
-              { type: 'text', text: msg.content },
+              { type: 'text', text: msg.content + '\nIMPORTANT: Respond ONLY with a JSON object in the format: { "type": string, "description": string, "url"?: string }' },
               { type: 'image', image: Buffer.from(imageBase64, 'base64') }
             ]
           };
@@ -84,28 +84,27 @@ export class OllamaProvider implements AIProvider {
         messages: messagesWithImage as any,
         maxTokens: 1024,
         temperature: 0.3,
-        tools: {
-          agentResponse: tool({
-            parameters: z.object({
-              type: z.string(),
-              description: z.string(),
-              url: z.string().optional(),
-            }),
-            execute: async (args) => args,
-          }),
-        },
       });
 
       logger.log(`\n=== Ollama Vision Chat Response (${this.visionModel}) ===`);
       logger.log('Response:', result);
 
-      // Extract the tool result if available, otherwise use the raw text
-      if (result.toolResults && result.toolResults.length > 0) {
-        const toolResult = result.toolResults[0];
-        return JSON.stringify(toolResult.result);
+      try {
+        // Try to parse the response as JSON
+        const jsonResponse = JSON.parse(result.text);
+        return JSON.stringify(jsonResponse);
+      } catch (parseError) {
+        // If parsing fails, try to extract JSON from the text
+        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return jsonMatch[0];
+        }
+        // If no JSON found, return a formatted error response
+        return JSON.stringify({
+          type: "error",
+          description: "Failed to get structured response from vision model"
+        });
       }
-
-      return result.text;
     } catch (error) {
       logger.error(`Ollama vision chat error (${this.visionModel}):`, error);
       throw error;
