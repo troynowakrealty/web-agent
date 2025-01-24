@@ -1,7 +1,8 @@
 import { AIProvider, ChatMessage } from './types';
 import { logger } from '../../utils/logger';
 import { ollama } from 'ollama-ai-provider';
-import { generateText } from 'ai';
+import { generateText, tool } from 'ai';
+import { z } from 'zod';
 
 export class OllamaProvider implements AIProvider {
   private baseUrl: string;
@@ -30,10 +31,26 @@ export class OllamaProvider implements AIProvider {
         messages: messages as any,
         maxTokens: 1024,
         temperature: 0.3,
+        tools: {
+          agentResponse: tool({
+            parameters: z.object({
+              type: z.string(),
+              description: z.string(),
+              url: z.string().optional(),
+            }),
+            execute: async (args) => args,
+          }),
+        },
       });
 
       logger.log(`\n=== Ollama Chat Response (${this.model}) ===`);
       logger.log('Response:', result);
+      
+      // Extract the tool result if available, otherwise use the raw text
+      if (result.toolResults && result.toolResults.length > 0) {
+        const toolResult = result.toolResults[0];
+        return JSON.stringify(toolResult.result);
+      }
       
       return result.text;
     } catch (error) {
@@ -67,10 +84,26 @@ export class OllamaProvider implements AIProvider {
         messages: messagesWithImage as any,
         maxTokens: 1024,
         temperature: 0.3,
+        tools: {
+          agentResponse: tool({
+            parameters: z.object({
+              type: z.string(),
+              description: z.string(),
+              url: z.string().optional(),
+            }),
+            execute: async (args) => args,
+          }),
+        },
       });
 
       logger.log(`\n=== Ollama Vision Chat Response (${this.visionModel}) ===`);
       logger.log('Response:', result);
+
+      // Extract the tool result if available, otherwise use the raw text
+      if (result.toolResults && result.toolResults.length > 0) {
+        const toolResult = result.toolResults[0];
+        return JSON.stringify(toolResult.result);
+      }
 
       return result.text;
     } catch (error) {
