@@ -29,8 +29,8 @@ export class OllamaProvider implements AIProvider {
       const result = await generateText({
         model: ollama(this.model),
         messages: messages as any,
+        temperature: 0.5,
         maxTokens: 1024,
-        temperature: 0.3,
         tools: {
           agentResponse: tool({
             parameters: z.object({
@@ -83,7 +83,7 @@ export class OllamaProvider implements AIProvider {
         model: ollama(this.visionModel),
         messages: messagesWithImage as any,
         maxTokens: 1024,
-        temperature: 0.3,
+        temperature: 0.5,
       });
 
       logger.log(`\n=== Ollama Vision Chat Response (${this.visionModel}) ===`);
