@@ -317,6 +317,11 @@ This project is currently in its early stages and we welcome contributions from 
    ```bash
    npm install
    ```
+   If you encounter peer dependency issues during installation, you can use the legacy peer deps flag:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+   This may be necessary due to some packages having strict peer dependency requirements.
 
 3. **Create a Branch**
    ```bash
