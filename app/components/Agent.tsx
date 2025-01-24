@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useAgent } from '../hooks/useAgent';
 import clsx from 'clsx';
 import { FiPlay, FiLoader } from 'react-icons/fi';
+import { useAIConfig } from '../hooks/useAIConfig';
 
 export default function Agent() {
   const [goalInput, setGoalInput] = useState('');
@@ -19,6 +20,7 @@ export default function Agent() {
     startMission,
     reset
   } = useAgent();
+  const aiConfig = useAIConfig();
 
   console.log(steps);
 
@@ -55,6 +57,26 @@ export default function Agent() {
           <div className="text-center">
             <h1 className="text-3xl font-bold tracking-[0.2em] text-[#E5B64A]">007 AGENT</h1>
             <p className="text-xs text-[#E5B64A]/70 tracking-[0.3em] mt-1">v0.1 BETA • CLASSIFIED</p>
+            {aiConfig && (
+              <div className="mt-2 flex items-center justify-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#E5B64A]/70">PROVIDER:</span>
+                  <span className="text-xs text-[#E5B64A] uppercase">{aiConfig.provider}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#E5B64A]/70">MODEL:</span>
+                  <span className="text-xs text-[#E5B64A]">
+                    {aiConfig.provider === 'openai' ? aiConfig.openai?.model : aiConfig.ollama?.model}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#E5B64A]/70">VISION:</span>
+                  <span className="text-xs text-[#E5B64A]">
+                    {aiConfig.provider === 'openai' ? aiConfig.openai?.visionModel : aiConfig.ollama?.visionModel}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <div className="absolute right-0">
             <div className="relative w-8 h-8">

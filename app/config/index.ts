@@ -1,3 +1,5 @@
+import { AIConfig } from '../lib/ai/types';
+
 /**
  * Configuration management for the GPT Brain application.
  * All environment variables and feature flags are centralized here.
@@ -5,12 +7,21 @@
 
 export const config = {
   /**
-   * OpenAI Configuration
+   * AI Provider Configuration
    */
-  openai: {
-    apiKey: process.env.OPENAI_API_KEY,
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-  },
+  ai: {
+    provider: (process.env.AI_PROVIDER || 'openai') as AIConfig['provider'],
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      visionModel: process.env.OPENAI_VISION_MODEL || 'gpt-4-vision-preview',
+    },
+    ollama: {
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+      model: process.env.OLLAMA_MODEL || 'mistral',
+      visionModel: process.env.OLLAMA_VISION_MODEL || 'llava',
+    },
+  } as AIConfig,
 
   /**
    * Development Features
