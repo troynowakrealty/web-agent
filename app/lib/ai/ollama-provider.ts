@@ -1,5 +1,7 @@
 import { AIProvider, ChatMessage } from './types';
 import { logger } from '../../utils/logger';
+import { ollama } from 'ollama-ai-provider';
+import { generateText } from 'ai';
 
 export class OllamaProvider implements AIProvider {
   private baseUrl: string;
@@ -7,11 +9,10 @@ export class OllamaProvider implements AIProvider {
   private visionModel: string;
 
   constructor(baseUrl: string, model: string, visionModel: string) {
-    // Convert localhost to explicit IPv4 address
-    this.baseUrl = baseUrl.replace('localhost', '127.0.0.1');
-    this.baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+    this.baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     this.model = model;
     this.visionModel = visionModel;
+
     logger.log('Initialized Ollama provider:', {
       baseUrl: this.baseUrl,
       model: this.model,
@@ -24,28 +25,17 @@ export class OllamaProvider implements AIProvider {
       logger.log(`\n=== Ollama Chat Request (${this.model}) ===`);
       logger.log('Messages:', messages);
 
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          format: 'json',
-          stream: false
-        }),
+      const result = await generateText({
+        model: ollama(this.model),
+        messages: messages as any,
+        maxTokens: 1024,
+        temperature: 0.3,
       });
 
-      if (!response.ok) {
-        throw new Error(`Ollama request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       logger.log(`\n=== Ollama Chat Response (${this.model}) ===`);
-      logger.log('Response:', data);
+      logger.log('Response:', result);
       
-      return data.message?.content || '';
+      return result.text;
     } catch (error) {
       logger.error(`Ollama chat error (${this.model}):`, error);
       throw error;
@@ -65,40 +55,24 @@ export class OllamaProvider implements AIProvider {
             ...msg,
             content: Array.isArray(msg.content) ? msg.content : [
               { type: 'text', text: msg.content },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`
-                }
-              }
+              { type: 'image', image: Buffer.from(imageBase64, 'base64') }
             ]
           };
         }
         return msg;
       });
 
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.visionModel,
-          messages: messagesWithImage,
-          format: 'json',
-          stream: false
-        }),
+      const result = await generateText({
+        model: ollama(this.visionModel),
+        messages: messagesWithImage as any,
+        maxTokens: 1024,
+        temperature: 0.3,
       });
 
-      if (!response.ok) {
-        throw new Error(`Ollama request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       logger.log(`\n=== Ollama Vision Chat Response (${this.visionModel}) ===`);
-      logger.log('Response:', data);
+      logger.log('Response:', result);
 
-      return data.message?.content || '';
+      return result.text;
     } catch (error) {
       logger.error(`Ollama vision chat error (${this.visionModel}):`, error);
       throw error;
