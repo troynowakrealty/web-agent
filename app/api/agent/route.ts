@@ -1,16 +1,15 @@
-import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import type { Page } from 'puppeteer';
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
-import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
+import { AIProviderFactory } from '../../lib/ai/provider-factory';
+import type { ChatMessage } from '../../lib/ai/types';
 
-const openai = new OpenAI({
-  apiKey: config.openai.apiKey || ''
-});
+// Initialize AI provider
+const aiProvider = AIProviderFactory.createProvider(config.ai);
 
 interface Step {
   type: 'goto' | 'click' | 'complete';
@@ -22,12 +21,15 @@ interface Step {
 
 async function getNextStep(goal: string, currentUrl: string | null, steps: Step[], screenshot?: string): Promise<Step> {
   logger.log('\n=== Getting Next Step ===');
-  logger.log('Goal:', goal);
-  logger.log('Current URL:', currentUrl);
-  logger.log('Steps taken:', steps);
+  logger.log('Current State:', {
+    goal,
+    currentUrl,
+    stepsCount: steps.length,
+    lastStep: steps[steps.length - 1]?.description || 'No previous steps'
+  });
 
-  const systemMessage = {
-    role: 'system' as const,
+  const systemMessage: ChatMessage = {
+    role: 'system',
     content: `You are an AI web navigation expert. Given a user's goal and the current webpage view, determine the next action to take.
     You must return a JSON object with one of these formats:
     
@@ -90,43 +92,36 @@ async function getNextStep(goal: string, currentUrl: string | null, steps: Step[
     Steps taken: ${steps.map(s => s.description).join(', ')}`
   };
 
-  const userMessage = {
-    role: 'user' as const,
-    content: screenshot ? [
-      {
-        type: 'text' as const,
-        text: `Look at the current webpage view carefully. What elements do you see that are actually clickable? Based on these visible and clickable elements, what should be the next step to achieve: ${goal}`
-      },
-      {
-        type: 'image_url' as const,
-        image_url: {
-          url: `data:image/jpeg;base64,${screenshot}`
-        }
-      }
-    ] as ChatCompletionContentPart[] : `What should be the next step to achieve: ${goal}`
+  const userMessage: ChatMessage = {
+    role: 'user',
+    content: `Look at the current webpage view carefully. What elements do you see that are actually clickable? Based on these visible and clickable elements, what should be the next step to achieve: ${goal}`
   };
 
-  logger.log('\nSending request to OpenAI...');
-  logger.log('System message:', systemMessage.content);
+  logger.log('\n=== Requesting AI Decision ===');
+  logger.log('System prompt length:', systemMessage.content.length);
+  logger.log('Has screenshot:', !!screenshot);
 
-  const response = await openai.chat.completions.create({
-    model: config.openai.model,
-    messages: [systemMessage, userMessage],
-    temperature: 0.3,
-    response_format: { type: "json_object" }
-  });
+  const response = screenshot 
+    ? await aiProvider.chatWithVision([systemMessage, userMessage], screenshot)
+    : await aiProvider.chat([systemMessage, userMessage]);
 
-  logger.log('\nOpenAI Response:');
-  logger.log('Raw response:', JSON.stringify(response, null, 2));
+  logger.log('\n=== Processing AI Response ===');
   
-  const nextStep = JSON.parse(response.choices[0].message.content!);
-  logger.log('Parsed next step:', nextStep);
-  
-  return nextStep;
+  try {
+    const nextStep = JSON.parse(response);
+    logger.log('Next step:', nextStep);
+    return nextStep;
+  } catch (error) {
+    logger.error('Failed to parse AI response:', error);
+    logger.error('Raw response:', response);
+    throw new Error('Failed to parse AI response as JSON');
+  }
 }
 
 async function waitForPageLoad(page: Page) {
   try {
+    logger.log('\n=== Waiting for Page Load ===');
+    
     // First try networkidle2 which is more lenient
     await page.waitForNetworkIdle({ 
       idleTime: 500, 
@@ -150,10 +145,11 @@ async function waitForPageLoad(page: Page) {
       });
     });
 
+    logger.log('Page load complete');
     // Give a small buffer for any final renders
     await new Promise(resolve => setTimeout(resolve, 1000));
   } catch (error) {
-    logger.log('Error in waitForPageLoad:', error);
+    logger.error('Error in waitForPageLoad:', error);
     // Don't throw, just continue
   }
 }
@@ -168,7 +164,7 @@ async function takeScreenshot(page: Page): Promise<string> {
   }
 
   // Wait for page to be fully loaded
-  logger.log('Waiting for page to be fully loaded before taking screenshot...');
+  logger.log('\n=== Taking Screenshot ===');
   await waitForPageLoad(page);
 
   // Take screenshot
@@ -183,15 +179,17 @@ async function takeScreenshot(page: Page): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = path.join(process.cwd(), config.features.screenshotDir, `screenshot-${timestamp}.jpg`);
     fs.writeFileSync(filename, screenshot);
+    logger.log('Screenshot saved:', filename);
   }
 
+  logger.log('Screenshot taken successfully');
   // Always return base64 for API response
   return Buffer.from(screenshot).toString('base64');
 }
 
 async function executeStep(page: Page, step: Step): Promise<{ url: string; screenshot: string }> {
   logger.log('\n=== Executing Step ===');
-  logger.log('Step:', step);
+  logger.log('Step details:', step);
 
   let newUrl = page.url();
 
@@ -204,7 +202,7 @@ async function executeStep(page: Page, step: Step): Promise<{ url: string; scree
         timeout: 30000 
       });
     } catch (error) {
-      logger.log('Initial navigation attempt failed:', error);
+      logger.error('Initial navigation attempt failed:', error);
       
       // If that fails, try with just domcontentloaded
       logger.log('Retrying with domcontentloaded...');
@@ -254,7 +252,7 @@ async function executeStep(page: Page, step: Step): Promise<{ url: string; scree
           logger.log('Clicked element using selector');
         }
       } catch (error) {
-        logger.log('Could not find element using selector:', error);
+        logger.error('Could not find element using selector:', error);
         // Fall back to text search
       }
     }
@@ -344,16 +342,16 @@ async function executeStep(page: Page, step: Step): Promise<{ url: string; scree
 }
 
 export async function POST(req: Request) {
-  logger.log('=== API Request Received ===');
+  logger.log('\n=== New Agent Request ===');
   let browser = null;
   let page = null;
 
   try {
     const { goal, currentUrl, steps } = await req.json();
-    logger.log('Request payload:', { goal, currentUrl, steps });
+    logger.log('Request payload:', { goal, currentUrl, stepsCount: steps.length });
 
     // Initialize Puppeteer with configuration
-    logger.log('Initializing Puppeteer...');
+    logger.log('\n=== Initializing Browser ===');
     browser = await puppeteer.launch({ 
       headless: true,
       args: [
@@ -367,6 +365,7 @@ export async function POST(req: Request) {
       defaultViewport: config.browser.viewport
     });
     page = await browser.newPage();
+    logger.log('Browser initialized with viewport:', config.browser.viewport);
     
     // Set timeouts from config
     page.setDefaultTimeout(config.browser.timeouts.navigation);
@@ -379,14 +378,16 @@ export async function POST(req: Request) {
     // If we have a current URL, navigate to it first
     let screenshot = '';
     if (currentUrl) {
-      logger.log('Navigating to current URL first:', currentUrl);
+      logger.log('\n=== Initial Navigation ===');
+      logger.log('Navigating to:', currentUrl);
       try {
         await page.goto(currentUrl, { 
           waitUntil: 'networkidle2',
           timeout: 30000 
         });
       } catch (error) {
-        logger.log('Initial navigation failed, retrying with domcontentloaded:', error);
+        logger.error('Initial navigation failed:', error);
+        logger.log('Retrying with domcontentloaded...');
         await page.goto(currentUrl, { 
           waitUntil: 'domcontentloaded',
           timeout: 30000 
@@ -394,16 +395,17 @@ export async function POST(req: Request) {
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
       screenshot = await takeScreenshot(page);
+      logger.log('Initial navigation complete');
     }
 
-    // Get next step from GPT-4o-mini
-    logger.log('\nGetting next step from GPT-4...');
+    // Get next step from AI provider
+    logger.log('\n=== Getting Next Step ===');
     const nextStep = await getNextStep(goal, currentUrl, steps, screenshot);
     logger.log('Received next step:', nextStep);
 
     // If the step is 'complete', return immediately
     if (nextStep.type === 'complete') {
-      logger.log('Mission complete. Returning response.');
+      logger.log('\n=== Mission Complete ===');
       return NextResponse.json({
         nextStep,
         currentUrl,
@@ -413,7 +415,7 @@ export async function POST(req: Request) {
     }
 
     // Execute the step with Puppeteer
-    logger.log('\nExecuting step...');
+    logger.log('\n=== Executing Step ===');
     const { url: newUrl, screenshot: newScreenshot } = await executeStep(page, nextStep);
     logger.log('Step execution complete');
 
@@ -423,18 +425,23 @@ export async function POST(req: Request) {
       screenshot: newScreenshot,
       isComplete: false
     };
-    logger.log('\nReturning response:', response);
+    logger.log('\n=== Returning Response ===');
+    logger.log('Response:', {
+      stepType: response.nextStep.type,
+      currentUrl: response.currentUrl,
+      isComplete: response.isComplete
+    });
     return NextResponse.json(response);
 
   } catch (error) {
-    logger.error('\n=== Error in agent endpoint ===');
+    logger.error('\n=== Error in Agent Endpoint ===');
     logger.error('Error details:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'An unknown error occurred' },
       { status: 500 }
     );
   } finally {
-    logger.log('\n=== Cleaning up ===');
+    logger.log('\n=== Cleanup ===');
     if (page) {
       logger.log('Closing page...');
       await page.close();
