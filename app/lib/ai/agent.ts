@@ -1,7 +1,8 @@
 import { Action, BrowserState } from '../actions/types';
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
-import { AIProviderFactory } from './provider';
+import { AIProviderFactory } from './provider-factory';
+import { ChatMessage, ChatMessageRole } from './types';
 
 // Initialize AI provider
 const aiProvider = AIProviderFactory.createProvider(config.ai);
@@ -79,34 +80,43 @@ export async function getNextAction(
        - Check if the element is visible (shown in page state)
        - Ensure the element is interactive (links, buttons, inputs, etc.)
        - Use the exact index number shown in brackets
+
+    4. HANDLE OVERLAYS AND MODALS FIRST:
+       - If there are any modals, popups, or overlays visible, close them first
+       - Look for close buttons (usually marked with 'X' or 'Close')
+       - Handle these before attempting any other interactions
+       - Common attributes: role="dialog", aria-modal="true"
     
-    4. For clicking:
+    5. For clicking:
        - Only click elements that are actually clickable
        - Verify the element's purpose matches your intent
        - If element is not in view, use scroll action first
+       - For close buttons, look for 'X', '×', 'Close', or similar text
     
-    5. For typing:
+    6. For typing:
        - Only type in input fields, textareas, or contenteditable elements
        - Verify the input field is visible and enabled
+       - Make sure no modals or overlays are blocking the input
        - Keep input text relevant and concise
     
-    6. For scrolling:
+    7. For scrolling:
        - Use when elements are out of the viewport
        - Scroll to elements before interacting with them
        - Check element visibility after scrolling
 
-    7. Page State Understanding:
+    8. Page State Understanding:
        - Review the full element list before deciding actions
        - Consider element hierarchy and relationships
        - Pay attention to element attributes and roles
        - Use element text content to confirm correct targets
+       - Check for overlays or modals that might block interaction
 
     CRITICAL RULES:
-    1. ALWAYS use real, legitimate websites - never use example.com or placeholder URLs
-    2. Choose well-known, reputable websites appropriate for the task
-    3. Use the most direct and reliable path to achieve the goal
-    4. ANALYZE THE CURRENT VIEW FIRST - if you see enough information to satisfy the goal, complete the mission
-    5. Only navigate further if the current view doesn't contain enough information
+    1. ALWAYS handle overlays and modals first before attempting other actions
+    2. If you see a close button (X) on a modal, click it before proceeding
+    3. Verify elements are not obscured by overlays before interacting
+    4. Use the most direct path to achieve the goal
+    5. ANALYZE THE CURRENT VIEW FIRST - check for any blocking elements
     
     Current goal: ${goal}
     Current URL: ${context.currentUrl}
@@ -117,9 +127,7 @@ export async function getNextAction(
     Title: ${context.browserState.title}
     
     Available Elements:
-    ${context.browserState.elements.map((e: { index: number; tag: string; attributes: Record<string, string>; text: string }) => 
-      `[${e.index}] <${e.tag}${Object.entries(e.attributes).map(([k,v]) => ` ${k}="${v}"`).join('')}>${e.text}</${e.tag}>`
-    ).join('\n')}
+    ${context.browserState.elements.split('\n').map(line => line.trim()).join('\n')}
     
     Current scroll position: x=${context.browserState.scrollPosition.x}, y=${context.browserState.scrollPosition.y}
     ` : ''}
@@ -130,16 +138,16 @@ export async function getNextAction(
 
   // Request AI decision
   logger.log('\n=== Requesting AI Decision ===');
-  const messages = [
-    { role: 'system', content: systemMessage },
-    { role: 'user', content: 'Look at the current webpage view and available elements carefully. What should be the next action to achieve: ' + goal }
+  const messages: ChatMessage[] = [
+    { role: 'system' as ChatMessageRole, content: systemMessage },
+    { role: 'user' as ChatMessageRole, content: 'Look at the current webpage view and available elements carefully. What should be the next action to achieve: ' + goal }
   ];
 
-  const response = await aiProvider.chat(messages, context.browserState?.screenshot);
+  const response = await aiProvider.chat(messages);
   logger.log('\n=== Processing AI Response ===');
 
   try {
-    const action = JSON.parse(response.content) as Action;
+    const action = JSON.parse(response) as Action;
     logger.log('Next action:', action);
     return action;
   } catch (error) {
