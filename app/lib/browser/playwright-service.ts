@@ -103,11 +103,26 @@ export class PlaywrightService {
         throw new Error('Element has no bounding box');
       }
 
-      // Click the element
-      await element.click({
-        timeout: 5000,
-        force: false // Don't force click if element is not actionable
-      });
+      // Try direct click first
+      try {
+        await element.click({
+          timeout: 5000,
+          force: false
+        });
+      } catch (error) {
+        logger.log('Direct click failed, trying alternative methods...');
+        
+        // Try clicking with JavaScript
+        await this.page.evaluate((sel: string) => {
+          const element = document.querySelector(sel);
+          if (element) {
+            (element as HTMLElement).click();
+          }
+        }, selector);
+        
+        // Wait a bit to see if the click had an effect
+        await this.page.waitForTimeout(1000);
+      }
       
       logger.log('Successfully clicked element');
     } catch (error) {
@@ -142,11 +157,31 @@ export class PlaywrightService {
         throw new Error('Element is not editable');
       }
 
-      // Clear existing content first
-      await element.fill('');
-      
-      // Type the text
-      await element.type(text, { delay: 50 }); // Add small delay between keystrokes
+      // Try focusing the element first
+      await element.focus();
+      await this.page.waitForTimeout(100);
+
+      // Try direct type first
+      try {
+        await element.fill('');
+        await element.type(text, { delay: 50 });
+      } catch (error) {
+        logger.log('Direct type failed, trying alternative methods...');
+        
+        // Try typing with JavaScript
+        const script = `(sel, val) => {
+          const element = document.querySelector(sel);
+          if (element) {
+            element.value = val;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }`;
+        await this.page.evaluate(script, selector, text);
+
+        // Press Enter to trigger search
+        await element.press('Enter');
+      }
       
       logger.log('Successfully typed text');
     } catch (error) {
