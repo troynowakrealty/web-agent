@@ -15,6 +15,7 @@ interface ElementInfo {
     height: number;
   };
   inViewport: boolean;
+  zIndex: number;
 }
 
 interface DOMState {
@@ -87,15 +88,32 @@ export class DOMService {
         el.removeAttribute('data-element-index');
       });
 
-      // Find interactive elements
+      // Enhanced selector for interactive elements, including dropdown options
       const elements = Array.from(document.querySelectorAll(
-        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"], [contenteditable="true"]'
+        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"], [contenteditable="true"], ' +
+        // Add selectors for common dropdown/autocomplete elements
+        '[role="option"], [role="listbox"], [role="combobox"], .dropdown-item, ' +
+        // Add Google Flights specific selectors
+        '[role="listitem"], [jsaction*="click"], [data-ved], ' +
+        // Add any element that has a click handler
+        '[onclick], [data-click], [class*="clickable"]'
       ));
 
-      const elementInfos = elements.map((element, index) => {
+      // Sort elements by z-index to prioritize overlays and dropdowns
+      const sortedElements = elements.sort((a, b) => {
+        const aStyle = window.getComputedStyle(a);
+        const bStyle = window.getComputedStyle(b);
+        const aZ = parseInt(aStyle.zIndex) || 0;
+        const bZ = parseInt(bStyle.zIndex) || 0;
+        return bZ - aZ;
+      });
+
+      const elementInfos = sortedElements.map((element, index) => {
         const rect = element.getBoundingClientRect();
         const isVisible = isElementVisible(element);
         const inViewport = isInViewport(rect);
+        const style = window.getComputedStyle(element);
+        const zIndex = parseInt(style.zIndex) || 0;
 
         // Add data-element-index attribute to the actual element
         element.setAttribute('data-element-index', (index + 1).toString());
@@ -112,7 +130,7 @@ export class DOMService {
           overlay.style.border = `2px solid ${colors[index % colors.length]}`;
           overlay.style.backgroundColor = `${colors[index % colors.length]}1A`;
           overlay.style.pointerEvents = 'none';
-          overlay.style.zIndex = '10000';
+          overlay.style.zIndex = Math.max(zIndex + 1, 10000).toString();
           
           const label = document.createElement('div');
           label.className = 'element-index';
@@ -125,6 +143,7 @@ export class DOMService {
           label.style.padding = '2px 4px';
           label.style.fontSize = '12px';
           label.style.borderRadius = '2px';
+          label.style.zIndex = (Math.max(zIndex + 2, 10001)).toString();
           overlay.appendChild(label);
 
           document.body.appendChild(overlay);
@@ -143,7 +162,8 @@ export class DOMService {
             width: rect.width,
             height: rect.height
           },
-          inViewport
+          inViewport,
+          zIndex
         };
       });
 

@@ -82,9 +82,10 @@ export class PlaywrightService {
 
     logger.log('Clicking element by selector:', selector);
     try {
+      // Wait longer for dynamic content
       const element = await this.page.waitForSelector(selector, { 
         state: 'visible', 
-        timeout: 5000 
+        timeout: 10000  // Increased timeout
       });
       
       if (!element) {
@@ -103,25 +104,35 @@ export class PlaywrightService {
         throw new Error('Element has no bounding box');
       }
 
+      // Wait for element to be stable (no movement)
+      await this.page.waitForTimeout(500);
+
       // Try direct click first
       try {
         await element.click({
-          timeout: 5000,
-          force: false
+          timeout: 10000,  // Increased timeout
+          force: false,
+          delay: 100  // Add slight delay
         });
       } catch (error) {
         logger.log('Direct click failed, trying alternative methods...');
+        
+        // Wait a bit before trying alternative
+        await this.page.waitForTimeout(500);
         
         // Try clicking with JavaScript
         await this.page.evaluate((sel: string) => {
           const element = document.querySelector(sel);
           if (element) {
+            // Dispatch mousedown and mouseup events before click
+            element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
             (element as HTMLElement).click();
           }
         }, selector);
         
-        // Wait a bit to see if the click had an effect
-        await this.page.waitForTimeout(1000);
+        // Wait longer to see if the click had an effect
+        await this.page.waitForTimeout(2000);
       }
       
       logger.log('Successfully clicked element');
@@ -138,7 +149,7 @@ export class PlaywrightService {
     try {
       const element = await this.page.waitForSelector(selector, { 
         state: 'visible', 
-        timeout: 5000 
+        timeout: 10000  // Increased timeout
       });
       
       if (!element) {
@@ -159,12 +170,21 @@ export class PlaywrightService {
 
       // Try focusing the element first
       await element.focus();
-      await this.page.waitForTimeout(100);
+      await this.page.waitForTimeout(200);  // Increased wait after focus
 
       // Try direct type first
       try {
-        await element.fill('');
-        await element.type(text, { delay: 50 });
+        await element.fill('');  // Clear existing text
+        await element.type(text, { delay: 100 });  // Increased typing delay
+        
+        // Wait for potential autocomplete/dropdown to appear
+        await this.page.waitForTimeout(1000);
+        
+        // Press Enter to trigger search
+        await element.press('Enter');
+        
+        // Wait for results to load
+        await this.page.waitForTimeout(2000);
       } catch (error) {
         logger.log('Direct type failed, trying alternative methods...');
         
@@ -175,12 +195,14 @@ export class PlaywrightService {
             element.value = val;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+            element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
           }
         }`;
         await this.page.evaluate(script, selector, text);
 
-        // Press Enter to trigger search
-        await element.press('Enter');
+        // Wait for results to load
+        await this.page.waitForTimeout(2000);
       }
       
       logger.log('Successfully typed text');
