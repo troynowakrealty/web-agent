@@ -43,9 +43,12 @@ export class DOMService {
 
   constructor(page: Page) {
     this.page = page;
+    logger.log('DOMService initialized');
   }
 
   async getPageState(highlightElements: boolean = true): Promise<DOMState> {
+    logger.log('Getting page state, highlight elements:', highlightElements);
+
     if (highlightElements && !this.highlightOverlayEnabled) {
       await this.injectHighlightStyles();
       this.highlightOverlayEnabled = true;
@@ -53,10 +56,14 @@ export class DOMService {
 
     const state = await this.page.evaluate(({ colors }) => {
       function isElementVisible(element: Element): boolean {
+        if (!element.getBoundingClientRect) return false;
         const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
         return style.display !== 'none' && 
                style.visibility !== 'hidden' && 
-               style.opacity !== '0';
+               style.opacity !== '0' &&
+               rect.width > 0 &&
+               rect.height > 0;
       }
 
       function isInViewport(rect: DOMRect): boolean {
@@ -74,18 +81,24 @@ export class DOMService {
         return attributes;
       }
 
-      // Remove existing highlights
+      // Remove existing highlights and indices
       document.querySelectorAll('.element-highlight').forEach(el => el.remove());
+      document.querySelectorAll('[data-element-index]').forEach(el => {
+        el.removeAttribute('data-element-index');
+      });
 
       // Find interactive elements
       const elements = Array.from(document.querySelectorAll(
-        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"]'
+        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"], [contenteditable="true"]'
       ));
 
-      const elementInfos: ElementInfo[] = elements.map((element, index) => {
+      const elementInfos = elements.map((element, index) => {
         const rect = element.getBoundingClientRect();
         const isVisible = isElementVisible(element);
         const inViewport = isInViewport(rect);
+
+        // Add data-element-index attribute to the actual element
+        element.setAttribute('data-element-index', (index + 1).toString());
 
         // Create highlight overlay if element is visible
         if (isVisible) {
@@ -149,10 +162,19 @@ export class DOMService {
       };
     }, { colors: HIGHLIGHT_COLORS });
 
+    logger.log('Page state retrieved:', {
+      url: state.url,
+      title: state.title,
+      elementCount: state.elements.length,
+      viewport: state.viewportSize,
+      visibleElements: state.elements.filter(e => e.isVisible).length
+    });
+
     return state;
   }
 
   private async injectHighlightStyles() {
+    logger.log('Injecting highlight styles');
     await this.page.addStyleTag({
       content: `
         .element-highlight {
@@ -170,6 +192,7 @@ export class DOMService {
   }
 
   async scrollToElement(index: number) {
+    logger.log('Scrolling to element:', index);
     const state = await this.getPageState(false);
     const element = state.elements.find(e => e.index === index);
     
@@ -187,41 +210,56 @@ export class DOMService {
 
       // Wait for scroll to complete
       await this.page.waitForTimeout(500);
+      logger.log('Scrolled to element position:', element.boundingBox);
+    } else {
+      logger.error('Element not found for scrolling:', index);
     }
   }
 
   async getElementByIndex(index: number): Promise<ElementInfo | null> {
+    logger.log('Getting element by index:', index);
     const state = await this.getPageState(false);
-    return state.elements.find(e => e.index === index) || null;
+    const element = state.elements.find(e => e.index === index) ?? null;
+    if (element) {
+      logger.log('Found element:', {
+        tag: element.tag,
+        type: element.type,
+        isVisible: element.isVisible
+      });
+    } else {
+      logger.log('Element not found');
+    }
+    return element;
   }
 
   async validateElement(index: number): Promise<boolean> {
+    logger.log('Validating element:', index);
     const element = await this.getElementByIndex(index);
-    return element !== null && element.isVisible;
+    const isValid = element !== null && element.isVisible;
+    logger.log('Element validation result:', { index, isValid });
+    return isValid;
   }
 
   async getFormattedElements(): Promise<string> {
-    return await this.page.evaluate(() => {
-      const elements = document.querySelectorAll(
-        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"]'
-      );
-
-      return Array.from(elements).map((element, index) => {
-        const tag = element.tagName.toLowerCase();
-        const attributes = Array.from(element.attributes)
-          .map(attr => `${attr.name}="${attr.value}"`)
-          .join(' ');
-        const content = element.textContent?.trim() || '';
-        
-        return `[${index + 1}]<${tag} ${attributes}>${content}</${tag}>`;
-      }).join('\n');
-    });
+    logger.log('Getting formatted elements');
+    const state = await this.getPageState(false);
+    return state.elements.map(element => {
+      const attrs = Object.entries(element.attributes)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ');
+      
+      return `[${element.index}] <${element.tag} ${attrs}>${element.text}</${element.tag}>`;
+    }).join('\n');
   }
 
   async cleanup() {
+    logger.log('Cleaning up DOM service');
     if (this.highlightOverlayEnabled) {
       await this.page.evaluate(() => {
         document.querySelectorAll('.element-highlight').forEach(el => el.remove());
+        document.querySelectorAll('[data-element-index]').forEach(el => {
+          el.removeAttribute('data-element-index');
+        });
       });
       this.highlightOverlayEnabled = false;
     }

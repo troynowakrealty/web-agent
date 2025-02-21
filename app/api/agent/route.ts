@@ -159,25 +159,62 @@ export async function POST(req: Request) {
 
     // Initialize browser if needed
     await playwrightService.initialize();
+    const page = await playwrightService.getPage();
+    if (!page) {
+      throw new Error('Failed to initialize browser page');
+    }
 
-    // If we have a current URL but haven't navigated yet, go there first
+    // Get or create browser state
     let browserState: BrowserState | undefined;
-    if (currentUrl && actions.length === 0) {
-      const result = await actionExecutor.execute({
-        type: 'goto',
-        url: currentUrl,
-        description: 'Returning to current page'
-      });
+    
+    if (currentUrl) {
+      if (actions.length === 0) {
+        // Initial navigation to current URL
+        logger.log('Performing initial navigation to:', currentUrl);
+        const result = await actionExecutor.execute({
+          type: 'goto',
+          url: currentUrl,
+          description: 'Returning to current page'
+        });
 
-      if (result.pageState) {
-        browserState = {
-          url: result.currentUrl,
-          title: result.pageState.title,
-          elements: result.pageState.elements,
-          scrollPosition: result.pageState.scrollPosition,
-          screenshot: result.screenshot
-        };
+        if (result.pageState) {
+          browserState = {
+            url: result.currentUrl,
+            title: result.pageState.title,
+            elements: result.pageState.elements,
+            scrollPosition: result.pageState.scrollPosition,
+            screenshot: result.screenshot
+          };
+        }
+      } else {
+        // Get current state for subsequent actions
+        logger.log('Getting current browser state');
+        const result = await actionExecutor.execute({
+          type: 'scroll',
+          index: 1,
+          description: 'Refreshing page state'
+        });
+
+        if (result.pageState) {
+          browserState = {
+            url: result.currentUrl,
+            title: result.pageState.title,
+            elements: result.pageState.elements,
+            scrollPosition: result.pageState.scrollPosition,
+            screenshot: result.screenshot
+          };
+        }
       }
+    }
+
+    if (!browserState) {
+      logger.log('Warning: No browser state available');
+    } else {
+      logger.log('Browser state captured:', {
+        url: browserState.url,
+        title: browserState.title,
+        elementCount: browserState.elements.split('\n').length
+      });
     }
 
     // Get next action from AI

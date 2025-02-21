@@ -82,8 +82,34 @@ export class PlaywrightService {
 
     logger.log('Clicking element by selector:', selector);
     try {
-      await this.page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
-      await this.page.click(selector);
+      const element = await this.page.waitForSelector(selector, { 
+        state: 'visible', 
+        timeout: 5000 
+      });
+      
+      if (!element) {
+        throw new Error('Element not found after waiting');
+      }
+
+      // Check if element is actually visible and clickable
+      const isVisible = await element.isVisible();
+      if (!isVisible) {
+        throw new Error('Element is not visible');
+      }
+
+      // Get element position
+      const box = await element.boundingBox();
+      if (!box) {
+        throw new Error('Element has no bounding box');
+      }
+
+      // Click the element
+      await element.click({
+        timeout: 5000,
+        force: false // Don't force click if element is not actionable
+      });
+      
+      logger.log('Successfully clicked element');
     } catch (error) {
       logger.error('Click by selector failed:', error);
       throw new Error(`Failed to click element with selector: ${selector}`);
@@ -95,8 +121,34 @@ export class PlaywrightService {
 
     logger.log('Typing text by selector:', { selector, text });
     try {
-      await this.page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
-      await this.page.fill(selector, text);
+      const element = await this.page.waitForSelector(selector, { 
+        state: 'visible', 
+        timeout: 5000 
+      });
+      
+      if (!element) {
+        throw new Error('Element not found after waiting');
+      }
+
+      // Check if element is actually visible and editable
+      const isVisible = await element.isVisible();
+      const isEditable = await element.isEditable();
+      
+      if (!isVisible) {
+        throw new Error('Element is not visible');
+      }
+      
+      if (!isEditable) {
+        throw new Error('Element is not editable');
+      }
+
+      // Clear existing content first
+      await element.fill('');
+      
+      // Type the text
+      await element.type(text, { delay: 50 }); // Add small delay between keystrokes
+      
+      logger.log('Successfully typed text');
     } catch (error) {
       logger.error('Type by selector failed:', error);
       throw new Error(`Failed to type text into element with selector: ${selector}`);
