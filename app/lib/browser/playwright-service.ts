@@ -41,6 +41,10 @@ export class PlaywrightService {
     }
   }
 
+  async getPage(): Promise<Page | null> {
+    return this.page;
+  }
+
   async cleanup() {
     if (this.page) {
       await this.page.close().catch(e => logger.error('Error closing page:', e));
@@ -73,50 +77,29 @@ export class PlaywrightService {
     }
   }
 
-  async click(selector: string, options?: { text?: string }) {
+  async clickBySelector(selector: string) {
     if (!this.page) throw new Error('Browser not initialized');
 
-    logger.log('Clicking element:', { selector, text: options?.text });
+    logger.log('Clicking element by selector:', selector);
     try {
-      if (options?.text) {
-        // Try to find element by text first
-        const elements = await this.page.getByText(options.text, { exact: true }).all();
-        for (const element of elements) {
-          if (await element.isVisible()) {
-            await element.click();
-            return;
-          }
-        }
-
-        // If exact match fails, try partial match
-        const partialElements = await this.page.getByText(options.text, { exact: false }).all();
-        for (const element of partialElements) {
-          if (await element.isVisible()) {
-            await element.click();
-            return;
-          }
-        }
-      }
-
-      // Fall back to selector with explicit wait
       await this.page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
       await this.page.click(selector);
     } catch (error) {
-      logger.error('Click failed:', error);
-      throw new Error(`Failed to click element: ${options?.text || selector}`);
+      logger.error('Click by selector failed:', error);
+      throw new Error(`Failed to click element with selector: ${selector}`);
     }
   }
 
-  async type(selector: string, text: string) {
+  async typeBySelector(selector: string, text: string) {
     if (!this.page) throw new Error('Browser not initialized');
 
-    logger.log('Typing text:', { selector, text });
+    logger.log('Typing text by selector:', { selector, text });
     try {
       await this.page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
       await this.page.fill(selector, text);
     } catch (error) {
-      logger.error('Type action failed:', error);
-      throw new Error(`Failed to type text into element: ${selector}`);
+      logger.error('Type by selector failed:', error);
+      throw new Error(`Failed to type text into element with selector: ${selector}`);
     }
   }
 
