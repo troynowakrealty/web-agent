@@ -4,11 +4,16 @@ import { logger } from '../../utils/logger';
 import { AIProviderFactory } from '../../lib/ai/provider-factory';
 import { playwrightService } from '../../lib/browser/playwright-service';
 import { actionExecutor } from '../../lib/actions/executor';
+import { DOMService } from '../../lib/browser/dom-service';
+import { getNextAction } from '../../lib/ai/agent';
 import type { ChatMessage } from '../../lib/ai/types';
 import type { Action, BrowserState } from '../../lib/actions/types';
 
 // Initialize AI provider
 const aiProvider = AIProviderFactory.createProvider(config.ai);
+
+// Initialize services
+let domService: DOMService;
 
 async function getNextAction(
   goal: string,
@@ -164,6 +169,11 @@ export async function POST(req: Request) {
       throw new Error('Failed to initialize browser page');
     }
 
+    // Initialize DOM service if needed
+    if (!domService) {
+      domService = new DOMService(page);
+    }
+
     // Get or create browser state
     let browserState: BrowserState | undefined;
     
@@ -217,56 +227,53 @@ export async function POST(req: Request) {
       });
     }
 
-    // Get next action from AI
+    // Get the next action from the AI
     const nextAction = await getNextAction(goal, currentUrl, actions, browserState);
 
-    // If the action is 'complete', return immediately
-    if (nextAction.type === 'complete') {
-      logger.log('\n=== Mission Complete ===');
-      await actionExecutor.cleanup();
-      return NextResponse.json({
-        nextAction,
-        currentUrl,
-        isComplete: true,
-        screenshot: browserState?.screenshot || '',
-        pageState: browserState ? {
-          title: browserState.title,
-          elements: browserState.elements,
-          scrollPosition: browserState.scrollPosition
-        } : undefined
-      });
-    }
+    logger.log('\n=== Processing AI Response ===');
+    logger.log('Next action:', nextAction);
 
     // Execute the action
-    logger.log('\n=== Executing Action ===');
-    const result = await actionExecutor.execute(nextAction);
+    try {
+      if (nextAction.type === 'goto') {
+        await playwrightService.goto(nextAction.url);
+      } else if (nextAction.type === 'click') {
+        await domService.validateElement(nextAction.index);
+        await playwrightService.clickBySelector(`[data-element-index="${nextAction.index}"]`);
+      } else if (nextAction.type === 'type') {
+        await domService.validateElement(nextAction.index);
+        await playwrightService.typeBySelector(`[data-element-index="${nextAction.index}"]`, nextAction.text);
+      } else if (nextAction.type === 'scroll') {
+        await domService.scrollToElement(nextAction.index);
+      }
 
-    // Handle action failure
-    if (!result.success) {
-      logger.error('Action failed:', result.error);
-      await actionExecutor.cleanup();
-      return NextResponse.json(
-        { error: result.error },
-        { status: 500 }
-      );
+      // Wait for any dynamic content to load
+      await playwrightService.waitForLoadState();
+
+      // Take a screenshot after the action
+      const screenshot = await playwrightService.takeScreenshot();
+
+      // Get the updated page state
+      const newState = await domService.getPageState(true);
+      const formattedElements = await domService.getFormattedElements();
+
+      logger.log('\n=== Returning Response ===');
+      return NextResponse.json({
+        actionType: nextAction.type,
+        currentUrl: await playwrightService.getCurrentUrl(),
+        isComplete: nextAction.type === 'complete',
+        nextAction,
+        screenshot,
+        pageState: newState,
+        formattedElements
+      });
+    } catch (error) {
+      logger.error('Action execution failed:', error);
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        currentUrl: await playwrightService.getCurrentUrl()
+      });
     }
-
-    const response = {
-      nextAction,
-      currentUrl: result.currentUrl,
-      screenshot: result.screenshot,
-      pageState: result.pageState,
-      isComplete: false
-    };
-
-    logger.log('\n=== Returning Response ===');
-    logger.log('Response:', {
-      actionType: response.nextAction.type,
-      currentUrl: response.currentUrl,
-      isComplete: response.isComplete
-    });
-
-    return NextResponse.json(response);
 
   } catch (error) {
     logger.error('\n=== Error in Agent Endpoint ===');
