@@ -1,17 +1,10 @@
 import { useState, useCallback } from 'react';
-
-interface Step {
-  type: 'goto' | 'click' | 'complete';
-  url?: string;
-  elementText?: string;
-  description: string;
-  selector?: string;
-}
+import { Action } from '../lib/actions/types';
 
 interface AgentState {
   goal: string | null;
   currentUrl: string | null;
-  steps: Step[];
+  actions: Action[];
   isProcessing: boolean;
   error: string | null;
   isComplete: boolean;
@@ -19,7 +12,7 @@ interface AgentState {
 }
 
 interface AgentResponse {
-  nextStep: Step;
+  nextAction: Action;
   currentUrl: string;
   error?: string;
   isComplete: boolean;
@@ -32,19 +25,19 @@ export function useAgent() {
   const [state, setState] = useState<AgentState>({
     goal: null,
     currentUrl: null,
-    steps: [],
+    actions: [],
     isProcessing: false,
     error: null,
     isComplete: false,
     screenshot: null
   });
 
-  const executeStep = async (goal: string, currentState: AgentState): Promise<AgentResponse> => {
-    console.log('\n=== Executing Step ===');
+  const executeAction = async (goal: string, currentState: AgentState): Promise<AgentResponse> => {
+    console.log('\n=== Executing Action ===');
     console.log('Current state:', {
       goal,
       currentUrl: currentState.currentUrl,
-      steps: currentState.steps
+      actions: currentState.actions
     });
 
     const response = await fetch('/api/agent', {
@@ -53,13 +46,13 @@ export function useAgent() {
       body: JSON.stringify({
         goal,
         currentUrl: currentState.currentUrl,
-        steps: currentState.steps
+        actions: currentState.actions
       })
     });
 
     if (!response.ok) {
       console.error('API request failed:', response.status, response.statusText);
-      throw new Error('Failed to execute step');
+      throw new Error('Failed to execute action');
     }
 
     const data = await response.json();
@@ -67,8 +60,8 @@ export function useAgent() {
     return data;
   };
 
-  const handleStepResponse = useCallback(async (response: AgentResponse, currentState: AgentState) => {
-    console.log('\n=== Handling Step Response ===');
+  const handleActionResponse = useCallback(async (response: AgentResponse, currentState: AgentState) => {
+    console.log('\n=== Handling Action Response ===');
     console.log('Response:', response);
     console.log('Current state:', currentState);
 
@@ -89,15 +82,15 @@ export function useAgent() {
         isComplete: true,
         currentUrl: response.currentUrl,
         screenshot: response.screenshot,
-        steps: [...prev.steps, response.nextStep]
+        actions: [...prev.actions, response.nextAction]
       }));
       return;
     }
 
-    // Update state with new step
+    // Update state with new action
     const newState: AgentState = {
       ...currentState,
-      steps: [...currentState.steps, response.nextStep],
+      actions: [...currentState.actions, response.nextAction],
       currentUrl: response.currentUrl,
       screenshot: response.screenshot,
       error: null,
@@ -107,13 +100,13 @@ export function useAgent() {
     // Update state first
     setState(newState);
 
-    // Then schedule next step
+    // Then schedule next action
     try {
-      console.log('Executing next step...');
-      const nextResponse = await executeStep(currentState.goal!, newState);
-      await handleStepResponse(nextResponse, newState);
+      console.log('Executing next action...');
+      const nextResponse = await executeAction(currentState.goal!, newState);
+      await handleActionResponse(nextResponse, newState);
     } catch (error) {
-      console.error('Error executing step:', error);
+      console.error('Error executing action:', error);
       setState(prev => ({
         ...prev,
         isProcessing: false,
@@ -130,7 +123,7 @@ export function useAgent() {
     const initialState: AgentState = {
       goal,
       currentUrl: null,
-      steps: [],
+      actions: [],
       isProcessing: true,
       error: null,
       isComplete: false,
@@ -141,10 +134,10 @@ export function useAgent() {
     setState(initialState);
 
     try {
-      console.log('Executing first step...');
-      const response = await executeStep(goal, initialState);
-      console.log('First step response:', response);
-      await handleStepResponse(response, initialState);
+      console.log('Executing first action...');
+      const response = await executeAction(goal, initialState);
+      console.log('First action response:', response);
+      await handleActionResponse(response, initialState);
     } catch (error) {
       console.error('Error starting mission:', error);
       setState(prev => ({
@@ -153,14 +146,14 @@ export function useAgent() {
         error: error instanceof Error ? error.message : 'An unknown error occurred'
       }));
     }
-  }, [handleStepResponse]);
+  }, [handleActionResponse]);
 
   const reset = useCallback(() => {
     console.log('\n=== Resetting Agent State ===');
     setState({
       goal: null,
       currentUrl: null,
-      steps: [],
+      actions: [],
       isProcessing: false,
       error: null,
       isComplete: false,

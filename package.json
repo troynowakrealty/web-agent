@@ -7,10 +7,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
+    "@playwright/test": "^1.42.1",
     "@types/uuid": "^10.0.0",
     "ai": "^4.1.2",
     "clsx": "^2.1.0",
@@ -21,12 +23,13 @@
     "node-tesseract-ocr": "^2.2.1",
     "ollama-ai-provider": "^1.2.0",
     "openai": "^4.0.0",
-    "puppeteer": "^24.0.0",
+    "playwright": "^1.42.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.4.0",
     "tesseract.js": "^5.0.5",
     "uuid": "^11.0.5",
+    "zod": "^3.24.2",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

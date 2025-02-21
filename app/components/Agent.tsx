@@ -11,7 +11,7 @@ export default function Agent() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const {
     goal,
-    steps,
+    actions,
     isProcessing,
     error,
     isComplete,
@@ -22,9 +22,7 @@ export default function Agent() {
   } = useAgent();
   const aiConfig = useAIConfig();
 
-  console.log(steps);
-
-  // Auto-scroll timeline when new steps are added
+  // Auto-scroll timeline when new actions are added
   const scrollToBottom = () => {
     if (timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
@@ -98,17 +96,17 @@ export default function Agent() {
           <div className="flex-1 bg-black/40 rounded-lg border border-[#E5B64A]/30 p-4 overflow-hidden flex flex-col">
             <h2 className="text-lg font-bold tracking-wide mb-4 text-[#E5B64A]">MISSION STATUS</h2>
             
-            {/* Steps List */}
+            {/* Actions List */}
             <div 
               ref={timelineRef} 
               className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#E5B64A] scrollbar-track-[#E5B64A]/10"
             >
-              {steps.filter(step => step.type !== 'complete').map((step, index) => (
+              {actions.filter(action => action.type !== 'complete').map((action, index) => (
                 <div
                   key={index}
                   className={clsx(
                     "mb-2 p-3 rounded-lg border transition-colors",
-                    index === steps.length - 1
+                    index === actions.length - 1
                       ? "border-[#E5B64A] bg-[#E5B64A]/10"
                       : "border-[#E5B64A]/30 hover:border-[#E5B64A]/50"
                   )}
@@ -117,7 +115,24 @@ export default function Agent() {
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center border border-[#E5B64A]/50">
                       <span className="text-xs text-[#E5B64A]">{index + 1}</span>
                     </div>
-                    <span className="text-sm">{step.description}</span>
+                    <div className="flex-1">
+                      <span className="text-sm">{action.description}</span>
+                      {action.type === 'goto' && (
+                        <div className="mt-1 text-xs text-[#E5B64A]/70 truncate">
+                          {action.url}
+                        </div>
+                      )}
+                      {action.type === 'click' && action.text && (
+                        <div className="mt-1 text-xs text-[#E5B64A]/70">
+                          Clicking: "{action.text}"
+                        </div>
+                      )}
+                      {action.type === 'type' && (
+                        <div className="mt-1 text-xs text-[#E5B64A]/70">
+                          Typing: "{action.text}"
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -128,7 +143,7 @@ export default function Agent() {
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center border border-[#E5B64A]/50">
                       <FiLoader className="animate-spin text-[#E5B64A]" />
                     </div>
-                    <span className="text-sm">Processing next step...</span>
+                    <span className="text-sm">Processing next action...</span>
                   </div>
                 </div>
               )}
@@ -152,7 +167,7 @@ export default function Agent() {
                     </div>
                     <div className="ml-8 pl-4 border-l-2 border-emerald-500/30">
                       <p className="text-sm text-emerald-500/90 whitespace-pre-wrap">
-                        {steps.find(step => step.type === 'complete')?.description}
+                        {actions.find(action => action.type === 'complete')?.description}
                       </p>
                     </div>
                   </div>
