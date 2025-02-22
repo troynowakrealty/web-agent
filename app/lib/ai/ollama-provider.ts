@@ -1,9 +1,7 @@
 import { AIProvider, ChatMessage } from './types';
 import { logger } from '../../utils/logger';
 import { ollama } from 'ollama-ai-provider';
-import { generateText, tool } from 'ai';
-import type { CoreMessage, CoreUserMessage, TextPart, ImagePart } from 'ai';
-import { z } from 'zod';
+import { OpenAI } from 'openai';
 
 interface OllamaError {
   error: string;
@@ -35,36 +33,32 @@ export class OllamaProvider implements AIProvider {
       logger.log('info', { message: `=== Ollama Chat Request (${this.model}) ===` });
       logger.log('info', { message: 'Messages', data: messages });
 
-      const result = await generateText({
-        model: ollama(this.model),
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })) as CoreMessage[],
-        temperature: 0.5,
-        maxTokens: 1024,
-        tools: {
-          agentResponse: tool({
-            parameters: z.object({
-              type: z.string(),
-              description: z.string(),
-              url: z.string().optional(),
-            }),
-            execute: async (args) => args,
-          }),
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: this.model,
+          messages: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          format: 'json',
+          temperature: 0.5,
+        }),
       });
 
-      logger.log('info', { message: `=== Ollama Chat Response (${this.model}) ===` });
-      logger.log('info', { message: 'Response', data: result });
-      
-      // Extract the tool result if available, otherwise use the raw text
-      if (result.toolResults && result.toolResults.length > 0) {
-        const toolResult = result.toolResults[0];
-        return JSON.stringify(toolResult.result);
+      if (!response.ok) {
+        const error: OllamaError = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${error.error}`);
       }
-      
-      return result.text;
+
+      const data = await response.json();
+      logger.log('info', { message: `=== Ollama Chat Response (${this.model}) ===` });
+      logger.log('info', { message: 'Response', data: data });
+
+      return data.message.content;
     } catch (error) {
       logger.error({ 
         message: `Ollama chat error (${this.model})`,
@@ -80,37 +74,45 @@ export class OllamaProvider implements AIProvider {
       logger.log('info', { message: 'Messages', data: messages });
       logger.log('info', { message: 'Image provided', data: { hasImage: !!imageBase64 } });
 
-      // Convert messages to include image for vision model
-      const messagesWithImage = messages.map(msg => {
-        if (msg.role === 'user') {
-          const content: (TextPart | ImagePart)[] = [
-            { type: 'text', text: typeof msg.content === 'string' ? msg.content + '\nIMPORTANT: Respond ONLY with a JSON object in the format: { "type": string, "description": string, "url"?: string }' : '' },
-            { type: 'image', image: Buffer.from(imageBase64, 'base64') }
-          ];
-          return {
-            role: msg.role,
-            content
-          } as CoreUserMessage;
-        }
-        return {
-          role: msg.role,
-          content: msg.content
-        } as CoreMessage;
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.visionModel,
+          messages: messages.map(msg => {
+            if (msg.role === 'user') {
+              return {
+                role: msg.role,
+                content: [
+                  { type: 'text', text: msg.content },
+                  { type: 'image', image: Buffer.from(imageBase64, 'base64') }
+                ]
+              };
+            }
+            return {
+              role: msg.role,
+              content: msg.content
+            };
+          }),
+          format: 'json',
+          temperature: 0.5,
+        }),
       });
 
-      const result = await generateText({
-        model: ollama(this.visionModel),
-        messages: messagesWithImage,
-        maxTokens: 1024,
-        temperature: 0.5,
-      });
+      if (!response.ok) {
+        const error: OllamaError = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${error.error}`);
+      }
 
+      const data = await response.json();
       logger.log('info', { message: `=== Ollama Vision Chat Response (${this.visionModel}) ===` });
-      logger.log('info', { message: 'Response', data: result });
+      logger.log('info', { message: 'Response', data: data });
 
       try {
         // Try to parse the response as JSON
-        const jsonResponse = JSON.parse(result.text);
+        const jsonResponse = JSON.parse(data.message.content);
         return JSON.stringify(jsonResponse);
       } catch (error) {
         logger.log('info', { 
@@ -118,7 +120,7 @@ export class OllamaProvider implements AIProvider {
           data: { error: error instanceof Error ? error.message : 'Unknown error' }
         });
         // If parsing fails, try to extract JSON from the text
-        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        const jsonMatch = data.message.content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           return jsonMatch[0];
         }
