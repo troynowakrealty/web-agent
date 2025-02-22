@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "007 Agent - Autonomous Web Navigation",
+  title: "AIRAS Agent - Autonomous Web Navigation",
   description: "An autonomous web agent powered by GPT-4 Vision, capable of navigating and interacting with any website through natural language commands.",
 };
 
