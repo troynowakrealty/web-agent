@@ -1,6 +1,6 @@
 # AIRAS Agent
 
-<img width="1425" alt="screenshot" src="https://github.com/user-attachments/assets/f78754d5-1bd1-489b-9720-9d5867abd6d4" />
+<img width="1894" alt="Flight booking interface displaying departure city_ destination_ dates_ regional settings_ and search options for Skyscanner__2025-02-22" src="https://github.com/user-attachments/assets/0d3d8d12-97ba-4625-9d02-2897319e765e" />
 
 > **Note**: This project is for research and non-commercial use only.
 
