@@ -1,5 +1,6 @@
 import { Page } from 'playwright';
 import { logger } from '../../utils/logger';
+import { playwrightService } from './playwright-service';
 
 interface ElementInfo {
   index: number;
@@ -39,23 +40,30 @@ const HIGHLIGHT_COLORS = [
 ];
 
 export class DOMService {
-  private page: Page;
   private highlightOverlayEnabled: boolean = false;
 
-  constructor(page: Page) {
-    this.page = page;
+  constructor() {
     logger.log('DOMService initialized');
+  }
+
+  private async getCurrentPage(): Promise<Page> {
+    const page = await playwrightService.getPage();
+    if (!page) {
+      throw new Error('No active page available');
+    }
+    return page;
   }
 
   async getPageState(highlightElements: boolean = true): Promise<DOMState> {
     logger.log('Getting page state, highlight elements:', highlightElements);
+    const page = await this.getCurrentPage();
 
     if (highlightElements && !this.highlightOverlayEnabled) {
       await this.injectHighlightStyles();
       this.highlightOverlayEnabled = true;
     }
 
-    const state = await this.page.evaluate(({ colors }) => {
+    const state = await page.evaluate(({ colors }) => {
       function isElementVisible(element: Element): boolean {
         if (!element.getBoundingClientRect) return false;
         const style = window.getComputedStyle(element);
@@ -237,7 +245,8 @@ export class DOMService {
 
   private async injectHighlightStyles() {
     logger.log('Injecting highlight styles');
-    await this.page.addStyleTag({
+    const page = await this.getCurrentPage();
+    await page.addStyleTag({
       content: `
         .element-highlight {
           transition: all 0.2s ease-in-out;
@@ -255,11 +264,12 @@ export class DOMService {
 
   async scrollToElement(index: number) {
     logger.log('Scrolling to element:', index);
+    const page = await this.getCurrentPage();
     const state = await this.getPageState(false);
     const element = state.elements.find(e => e.index === index);
     
     if (element && element.boundingBox) {
-      await this.page.evaluate(({ x, y }) => {
+      await page.evaluate(({ x, y }) => {
         window.scrollTo({
           left: x,
           top: y,
@@ -271,7 +281,7 @@ export class DOMService {
       });
 
       // Wait for scroll to complete
-      await this.page.waitForTimeout(500);
+      await page.waitForTimeout(500);
       logger.log('Scrolled to element position:', element.boundingBox);
     } else {
       logger.error('Element not found for scrolling:', index);
@@ -316,8 +326,9 @@ export class DOMService {
 
   async cleanup() {
     logger.log('Cleaning up DOM service');
+    const page = await this.getCurrentPage();
     if (this.highlightOverlayEnabled) {
-      await this.page.evaluate(() => {
+      await page.evaluate(() => {
         document.querySelectorAll('.element-highlight').forEach(el => el.remove());
         document.querySelectorAll('[data-element-index]').forEach(el => {
           el.removeAttribute('data-element-index');

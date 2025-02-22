@@ -8,11 +8,7 @@ export class ActionExecutor {
 
   private async ensureDOMService() {
     if (!this.domService) {
-      const page = await playwrightService.getPage();
-      if (!page) {
-        throw new Error('Browser page not initialized');
-      }
-      this.domService = new DOMService(page);
+      this.domService = new DOMService();
     }
     return this.domService;
   }
