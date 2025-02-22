@@ -5,8 +5,7 @@ import { AIProviderFactory } from '../../lib/ai/provider-factory';
 import { playwrightService } from '../../lib/browser/playwright-service';
 import { actionExecutor } from '../../lib/actions/executor';
 import { DOMService } from '../../lib/browser/dom-service';
-import { getNextAction } from '../../lib/ai/agent';
-import type { ChatMessage } from '../../lib/ai/types';
+import type { ChatMessage, ChatMessageRole } from '../../lib/ai/types';
 import type { Action, BrowserState } from '../../lib/actions/types';
 
 // Initialize AI provider
@@ -30,7 +29,7 @@ async function getNextAction(
   });
 
   const systemMessage: ChatMessage = {
-    role: 'system',
+    role: 'system' as ChatMessageRole,
     content: `You are an AI web navigation expert. Given a user's goal and the current webpage view, determine the next action to take.
     You must return a JSON object with one of these formats:
     
@@ -70,6 +69,18 @@ async function getNextAction(
       "summary": "detailed summary of what was found",
       "evaluation": "success" | "failed" | "partial"
     }
+
+    CRITICAL INSTRUCTIONS FOR TASK COMPLETION:
+    1. For flight searches:
+       - Mark as complete when flight options are clearly displayed
+       - Include available flight details in the completion summary
+       - Don't continue clicking if valid flight results are shown
+      
+    2. General completion criteria:
+       - If the current view shows the information needed to satisfy the goal
+       - If further actions would not provide additional relevant information
+       - When the core objective has been achieved
+       - When search results or options are clearly displayed
 
     CRITICAL INSTRUCTIONS FOR ELEMENT INTERACTION:
     1. Elements are indexed starting from 1 and are shown with [index] in the page state
@@ -130,7 +141,7 @@ async function getNextAction(
   };
 
   const userMessage: ChatMessage = {
-    role: 'user',
+    role: 'user' as ChatMessageRole,
     content: `Look at the current webpage view and available elements carefully. What should be the next action to achieve: ${goal}`
   };
 
@@ -162,110 +173,63 @@ export async function POST(req: Request) {
     const { goal, currentUrl, actions = [] } = await req.json();
     logger.log('Request payload:', { goal, currentUrl, actionsCount: actions.length });
 
-    // Initialize browser if needed
+    // Initialize browser and wait for it to be ready
     await playwrightService.initialize();
+    
+    // Get the page after initialization
     const page = await playwrightService.getPage();
     if (!page) {
       throw new Error('Failed to initialize browser page');
     }
 
-    // Initialize DOM service if needed
-    if (!domService) {
-      domService = new DOMService(page);
+    // If this is a new session with a current URL, navigate to it first
+    if (currentUrl && actions.length === 0) {
+      logger.log('Performing initial navigation to:', currentUrl);
+      await playwrightService.goto(currentUrl);
     }
 
-    // Get or create browser state
+    // Get the current browser state
     let browserState: BrowserState | undefined;
-    
-    if (currentUrl) {
-      if (actions.length === 0) {
-        // Initial navigation to current URL
-        logger.log('Performing initial navigation to:', currentUrl);
-        const result = await actionExecutor.execute({
-          type: 'goto',
-          url: currentUrl,
-          description: 'Returning to current page'
-        });
+    try {
+      const domService = new DOMService();
+      const pageState = await domService.getPageState(true);
+      const formattedElements = await domService.getFormattedElements();
+      
+      browserState = {
+        url: await playwrightService.getCurrentUrl(),
+        title: pageState.title,
+        elements: formattedElements,
+        scrollPosition: pageState.scrollPosition,
+        screenshot: await playwrightService.takeScreenshot()
+      };
 
-        if (result.pageState) {
-          browserState = {
-            url: result.currentUrl,
-            title: result.pageState.title,
-            elements: result.pageState.elements,
-            scrollPosition: result.pageState.scrollPosition,
-            screenshot: result.screenshot
-          };
-        }
-      } else {
-        // Get current state for subsequent actions
-        logger.log('Getting current browser state');
-        const result = await actionExecutor.execute({
-          type: 'scroll',
-          index: 1,
-          description: 'Refreshing page state'
-        });
-
-        if (result.pageState) {
-          browserState = {
-            url: result.currentUrl,
-            title: result.pageState.title,
-            elements: result.pageState.elements,
-            scrollPosition: result.pageState.scrollPosition,
-            screenshot: result.screenshot
-          };
-        }
-      }
-    }
-
-    if (!browserState) {
-      logger.log('Warning: No browser state available');
-    } else {
       logger.log('Browser state captured:', {
         url: browserState.url,
         title: browserState.title,
         elementCount: browserState.elements.split('\n').length
       });
+    } catch (error) {
+      logger.error('Failed to get initial browser state:', error);
+      // Continue without browser state for initial navigation
     }
 
     // Get the next action from the AI
     const nextAction = await getNextAction(goal, currentUrl, actions, browserState);
-
     logger.log('\n=== Processing AI Response ===');
     logger.log('Next action:', nextAction);
 
     // Execute the action
     try {
-      if (nextAction.type === 'goto') {
-        await playwrightService.goto(nextAction.url);
-      } else if (nextAction.type === 'click') {
-        await domService.validateElement(nextAction.index);
-        await playwrightService.clickBySelector(`[data-element-index="${nextAction.index}"]`);
-      } else if (nextAction.type === 'type') {
-        await domService.validateElement(nextAction.index);
-        await playwrightService.typeBySelector(`[data-element-index="${nextAction.index}"]`, nextAction.text);
-      } else if (nextAction.type === 'scroll') {
-        await domService.scrollToElement(nextAction.index);
-      }
-
-      // Wait for any dynamic content to load
-      await playwrightService.waitForLoadState();
-
-      // Take a screenshot after the action
-      const screenshot = await playwrightService.takeScreenshot();
-
-      // Get the updated page state
-      const newState = await domService.getPageState(true);
-      const formattedElements = await domService.getFormattedElements();
-
+      const result = await actionExecutor.execute(nextAction);
+      
       logger.log('\n=== Returning Response ===');
       return NextResponse.json({
         actionType: nextAction.type,
-        currentUrl: await playwrightService.getCurrentUrl(),
+        currentUrl: result.currentUrl,
         isComplete: nextAction.type === 'complete',
         nextAction,
-        screenshot,
-        pageState: newState,
-        formattedElements
+        screenshot: result.screenshot,
+        pageState: result.pageState
       });
     } catch (error) {
       logger.error('Action execution failed:', error);
@@ -274,11 +238,17 @@ export async function POST(req: Request) {
         currentUrl: await playwrightService.getCurrentUrl()
       });
     }
-
   } catch (error) {
     logger.error('\n=== Error in Agent Endpoint ===');
     logger.error('Error details:', error);
-    await actionExecutor.cleanup();
+    
+    // Attempt cleanup even if there's an error
+    try {
+      await actionExecutor.cleanup();
+    } catch (cleanupError) {
+      logger.error('Cleanup error:', cleanupError);
+    }
+    
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'An unknown error occurred' },
       { status: 500 }
