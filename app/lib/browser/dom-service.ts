@@ -82,33 +82,75 @@ export class DOMService {
         return attributes;
       }
 
+      function isInteractiveElement(element: Element): boolean {
+        const tag = element.tagName.toLowerCase();
+        const role = element.getAttribute('role');
+        const type = (element as HTMLInputElement).type;
+        
+        // Common interactive elements
+        if (['a', 'button', 'input', 'select', 'textarea'].includes(tag)) return true;
+        
+        // Elements with interactive roles
+        if (['button', 'link', 'menuitem', 'option'].includes(role || '')) return true;
+        
+        // Clickable elements
+        if (element.hasAttribute('onclick') || element.hasAttribute('jsaction')) return true;
+        
+        // Input types that are interactive
+        if (tag === 'input' && ['text', 'search', 'number', 'email', 'tel', 'url'].includes(type)) return true;
+        
+        return false;
+      }
+
       // Remove existing highlights and indices
       document.querySelectorAll('.element-highlight').forEach(el => el.remove());
       document.querySelectorAll('[data-element-index]').forEach(el => {
         el.removeAttribute('data-element-index');
       });
 
-      // Enhanced selector for interactive elements, including dropdown options
+      // Enhanced selector for interactive elements
       const elements = Array.from(document.querySelectorAll(
-        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"], [contenteditable="true"], ' +
-        // Add selectors for common dropdown/autocomplete elements
+        'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], ' +
+        '[role="radio"], [role="switch"], [role="menuitem"], [contenteditable="true"], ' +
         '[role="option"], [role="listbox"], [role="combobox"], .dropdown-item, ' +
-        // Add Google Flights specific selectors
         '[role="listitem"], [jsaction*="click"], [data-ved], ' +
-        // Add any element that has a click handler
         '[onclick], [data-click], [class*="clickable"]'
       ));
 
-      // Sort elements by z-index to prioritize overlays and dropdowns
-      const sortedElements = elements.sort((a, b) => {
-        const aStyle = window.getComputedStyle(a);
-        const bStyle = window.getComputedStyle(b);
-        const aZ = parseInt(aStyle.zIndex) || 0;
-        const bZ = parseInt(bStyle.zIndex) || 0;
-        return bZ - aZ;
-      });
+      // Filter and sort elements by priority
+      const prioritizedElements = elements
+        .filter(element => {
+          const isVisible = isElementVisible(element);
+          const isInteractive = isInteractiveElement(element);
+          return isVisible && isInteractive;
+        })
+        .sort((a, b) => {
+          const aStyle = window.getComputedStyle(a);
+          const bStyle = window.getComputedStyle(b);
+          const aZ = parseInt(aStyle.zIndex) || 0;
+          const bZ = parseInt(bStyle.zIndex) || 0;
+          
+          // Prioritize elements in viewport
+          const aRect = a.getBoundingClientRect();
+          const bRect = b.getBoundingClientRect();
+          const aInViewport = isInViewport(aRect);
+          const bInViewport = isInViewport(bRect);
+          
+          if (aInViewport !== bInViewport) {
+            return aInViewport ? -1 : 1;
+          }
+          
+          // Then by z-index
+          if (aZ !== bZ) {
+            return bZ - aZ;
+          }
+          
+          // Then by position (top to bottom)
+          return aRect.top - bRect.top;
+        })
+        .slice(0, 50); // Limit to 50 most relevant elements
 
-      const elementInfos = sortedElements.map((element, index) => {
+      const elementInfos = prioritizedElements.map((element, index) => {
         const rect = element.getBoundingClientRect();
         const isVisible = isElementVisible(element);
         const inViewport = isInViewport(rect);

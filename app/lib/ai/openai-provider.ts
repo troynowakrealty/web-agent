@@ -25,7 +25,7 @@ export class OpenAIProvider implements AIProvider {
       const response = await this.client.chat.completions.create({
         model: this.model,
         messages: messages as any, // Type assertion needed due to OpenAI types mismatch
-        temperature: 0.5,
+        temperature: 0.7,
         response_format: { type: "json_object" }
       });
 
@@ -35,6 +35,9 @@ export class OpenAIProvider implements AIProvider {
       return response.choices[0].message.content || '';
     } catch (error) {
       logger.error(`OpenAI chat error (${this.model}):`, error);
+      if (error instanceof Error && error.message.includes('maximum context length')) {
+        throw new Error('Response too large. Try reducing the number of elements or simplifying the request.');
+      }
       throw error;
     }
   }
@@ -67,7 +70,7 @@ export class OpenAIProvider implements AIProvider {
       const response = await this.client.chat.completions.create({
         model: this.visionModel,
         messages: messagesWithImage as any, // Type assertion needed due to OpenAI types mismatch
-        temperature: 0.5,
+        temperature: 0.7,
         response_format: { type: "json_object" }
       });
 
@@ -77,6 +80,9 @@ export class OpenAIProvider implements AIProvider {
       return response.choices[0].message.content || '';
     } catch (error) {
       logger.error(`OpenAI vision chat error (${this.visionModel}):`, error);
+      if (error instanceof Error && error.message.includes('maximum context length')) {
+        throw new Error('Response too large. Try reducing the number of elements or simplifying the request.');
+      }
       throw error;
     }
   }
