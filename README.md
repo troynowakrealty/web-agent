@@ -12,7 +12,7 @@ A web automation system that uses AI with vision capabilities and Playwright to 
 
 1. **Clone and Install**
    ```bash
-   git clone https://github.com/GPT-Protocol/airas-agent.git
+   git clone https://github.com/airas-network/airas-agent.git
    cd airas-agent
    npm install
    ```
