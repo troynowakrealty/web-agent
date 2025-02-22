@@ -15,7 +15,7 @@ export class ActionExecutor {
 
   async execute(action: Action): Promise<ActionResult> {
     try {
-      logger.log('Executing action:', action);
+      logger.log('info', { message: 'Executing action', data: action });
       const domService = await this.ensureDOMService();
 
       switch (action.type) {
@@ -91,7 +91,10 @@ export class ActionExecutor {
       };
 
     } catch (error) {
-      logger.error('Action execution failed:', error);
+      logger.error({
+        message: 'Action execution failed',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       
       // Try to get current state even if action failed
       let currentUrl = '';
@@ -112,7 +115,10 @@ export class ActionExecutor {
           };
         }
       } catch (e) {
-        logger.error('Failed to get state after error:', e);
+        logger.error({
+          message: 'Failed to get state after error',
+          data: { error: e instanceof Error ? e.message : 'Unknown error' }
+        });
       }
 
       return {

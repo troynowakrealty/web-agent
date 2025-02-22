@@ -12,11 +12,16 @@ interface AgentState {
 }
 
 interface AgentResponse {
-  nextAction: Action;
+  actionType?: string;
   currentUrl: string;
   error?: string;
-  isComplete: boolean;
-  screenshot: string;
+  browserState?: {
+    title: string;
+    elements: string;
+    scrollPosition: { x: number; y: number };
+  };
+  screenshot?: string;
+  action?: Action;
 }
 
 export function useAgent() {
@@ -75,42 +80,35 @@ export function useAgent() {
     }
 
     // Check if the action is complete
-    if (response.isComplete || response.nextAction.type === 'complete') {
+    if (response.actionType === 'complete') {
       console.log('Mission complete');
       setState(prev => ({
         ...prev,
         isProcessing: false,
         isComplete: true,
         currentUrl: response.currentUrl,
-        screenshot: response.screenshot,
-        actions: [...prev.actions, response.nextAction]
+        screenshot: response.screenshot || null,
+        actions: [...prev.actions, {
+          type: 'complete',
+          description: 'Mission completed successfully',
+          summary: 'Task completed',
+          evaluation: 'success'
+        }]
       }));
       return;
     }
 
-    // Check for potential infinite loops
-    // const newAction = response.nextAction;
-    // const previousActions = currentState.actions;
-
-    // If we have too many actions of the same type in sequence
-    // const recentActions = previousActions.slice(-5);
-    // const sameTypeCount = recentActions.filter(a => a.type === newAction.type).length;
-    // if (sameTypeCount >= 4) {
-    //   console.log('Detected potential infinite loop - too many actions of same type');
-    //   setState(prev => ({
-    //     ...prev,
-    //     isProcessing: false,
-    //     error: 'Detected potential infinite loop - too many repeated actions'
-    //   }));
-    //   return;
-    // }
-
     // Update state with new action
     const newState: AgentState = {
       ...currentState,
-      actions: [...currentState.actions, response.nextAction],
+      actions: [...currentState.actions, response.action || {
+        type: 'complete',
+        description: 'Unknown action completed',
+        summary: 'Action completed',
+        evaluation: 'partial'
+      }],
       currentUrl: response.currentUrl,
-      screenshot: response.screenshot,
+      screenshot: response.screenshot || null,
       error: null,
       isProcessing: true
     };

@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config';
 
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+interface LogData {
+  message: string;
+  data?: unknown;
+}
+
 /**
  * Logger class for handling application logging with configurable output.
  * Logs can be written to both file and console based on environment settings.
@@ -31,22 +38,22 @@ class Logger {
 
   /**
    * Log a message with optional data. Will write to file if enabled.
-   * @param message - The message to log
-   * @param data - Optional data to include in the log
    */
-  log(message: string, data?: any) {
+  log(level: LogLevel, data: LogData | string): void {
+    const logData: LogData = typeof data === 'string' ? { message: data } : data;
+
     // Always log to console in development
-    console.log(message);
-    if (data) console.log(data);
+    console.log(logData.message);
+    if (logData.data) console.log(logData.data);
 
     // Only write to file if logging is enabled
     if (!this.enabled) return;
 
     const timestamp = new Date().toISOString();
-    let logMessage = `[${timestamp}] ${message}`;
+    let logMessage = `[${timestamp}] ${level.toUpperCase()}: ${this.formatData(logData)}`;
     
-    if (data) {
-      logMessage += '\n' + JSON.stringify(data, null, 2);
+    if (logData.data) {
+      logMessage += '\n' + JSON.stringify(logData.data, null, 2);
     }
     
     logMessage += '\n\n';
@@ -55,17 +62,10 @@ class Logger {
 
   /**
    * Log a section with a title and content.
-   * @param title - The section title
-   * @param content - The section content
-   * @param skipConsole - Whether to skip console output
    */
-  logSection(title: string, content: string, skipConsole: boolean = false) {
-    if (!skipConsole) {
-      console.log(`\n=== ${title} ===`);
-      console.log(content);
-      console.log('='.repeat(50));
-    }
-
+  logSection(title: string, content: string) {
+    this.log('info', { message: title, data: content });
+    
     if (!this.enabled) return;
 
     const separator = '='.repeat(50);
@@ -75,36 +75,18 @@ class Logger {
 
   /**
    * Log content only to file, not to console.
-   * @param title - The section title
-   * @param content - The content to log
    */
   logToFileOnly(title: string, content: string) {
     if (!this.enabled) return;
-    this.logSection(title, content, true);
+    this.log('info', { message: title, data: content });
   }
 
   /**
    * Log an error message with optional data
-   * @param message - The error message to log
-   * @param data - Optional error data to include
    */
-  error(message: string, data?: any) {
-    // Always log errors to console
-    console.error(message);
-    if (data) console.error(data);
-
-    // Only write to file if logging is enabled
-    if (!this.enabled) return;
-
-    const timestamp = new Date().toISOString();
-    let logMessage = `[${timestamp}] ERROR: ${message}`;
-    
-    if (data) {
-      logMessage += '\n' + JSON.stringify(data, null, 2);
-    }
-    
-    logMessage += '\n\n';
-    fs.appendFileSync(this.logFile, logMessage);
+  error(data: LogData | string): void {
+    const logData: LogData = typeof data === 'string' ? { message: data } : data;
+    this.log('error', logData);
   }
 
   /**
@@ -112,6 +94,10 @@ class Logger {
    */
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  private formatData(data: LogData): string {
+    return data.message;
   }
 }
 

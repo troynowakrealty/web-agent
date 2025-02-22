@@ -11,21 +11,21 @@ import type { Action, BrowserState } from '../../lib/actions/types';
 // Initialize AI provider
 const aiProvider = AIProviderFactory.createProvider(config.ai);
 
-// Initialize services
-let domService: DOMService;
-
 async function getNextAction(
   goal: string,
   currentUrl: string | null,
   actions: Action[],
   browserState?: BrowserState
 ): Promise<Action> {
-  logger.log('\n=== Getting Next Action ===');
-  logger.log('Current State:', {
-    goal,
-    currentUrl,
-    actionsCount: actions.length,
-    lastAction: actions[actions.length - 1]?.description || 'No previous actions'
+  logger.log('info', { message: '=== Getting Next Action ===' });
+  logger.log('info', {
+    message: 'Current State',
+    data: {
+      goal,
+      currentUrl,
+      actionsCount: actions.length,
+      lastAction: actions[actions.length - 1]?.description || 'No previous actions'
+    }
   });
 
   const systemMessage: ChatMessage = {
@@ -145,51 +145,45 @@ async function getNextAction(
     content: `Look at the current webpage view and available elements carefully. What should be the next action to achieve: ${goal}`
   };
 
-  logger.log('\n=== Requesting AI Decision ===');
-  logger.log('System prompt length:', systemMessage.content.length);
-  logger.log('Has browser state:', !!browserState);
+  logger.log('info', { message: '=== Requesting AI Decision ===' });
+  logger.log('info', { message: 'System prompt length', data: systemMessage.content.length });
+  logger.log('info', { message: 'Has browser state', data: !!browserState });
 
   const response = browserState?.screenshot 
     ? await aiProvider.chatWithVision([systemMessage, userMessage], browserState.screenshot)
     : await aiProvider.chat([systemMessage, userMessage]);
 
-  logger.log('\n=== Processing AI Response ===');
+  logger.log('info', { message: '=== Processing AI Response ===' });
   
   try {
     const nextAction = JSON.parse(response);
-    logger.log('Next action:', nextAction);
+    logger.log('info', { message: 'Next action', data: nextAction });
     return nextAction;
   } catch (error) {
-    logger.error('Failed to parse AI response:', error);
-    logger.error('Raw response:', response);
+    logger.error({ 
+      message: 'Failed to parse AI response',
+      data: { error: error instanceof Error ? error.message : 'Unknown error', response }
+    });
     throw new Error('Failed to parse AI response as JSON');
   }
 }
 
 export async function POST(req: Request) {
-  logger.log('\n=== New Agent Request ===');
+  logger.log('info', { message: '=== New Agent Request ===' });
 
   try {
     const { goal, currentUrl, actions = [] } = await req.json();
-    logger.log('Request payload:', { goal, currentUrl, actionsCount: actions.length });
+    logger.log('info', {
+      message: 'Request payload',
+      data: { goal, currentUrl, actionsCount: actions.length }
+    });
 
     // Initialize browser and wait for it to be ready
     await playwrightService.initialize();
-    
-    // Get the page after initialization
-    const page = await playwrightService.getPage();
-    if (!page) {
-      throw new Error('Failed to initialize browser page');
-    }
 
-    // If this is a new session with a current URL, navigate to it first
-    if (currentUrl && actions.length === 0) {
-      logger.log('Performing initial navigation to:', currentUrl);
-      await playwrightService.goto(currentUrl);
-    }
-
-    // Get the current browser state
     let browserState: BrowserState | undefined;
+
+    // Get initial browser state if we have a current URL
     try {
       const domService = new DOMService();
       const pageState = await domService.getPageState(true);
@@ -199,59 +193,71 @@ export async function POST(req: Request) {
         url: await playwrightService.getCurrentUrl(),
         title: pageState.title,
         elements: formattedElements,
-        scrollPosition: pageState.scrollPosition,
-        screenshot: await playwrightService.takeScreenshot()
+        screenshot: await playwrightService.takeScreenshot(),
+        scrollPosition: pageState.scrollPosition
       };
 
-      logger.log('Browser state captured:', {
-        url: browserState.url,
-        title: browserState.title,
-        elementCount: browserState.elements.split('\n').length
+      logger.log('info', {
+        message: 'Browser state captured',
+        data: {
+          url: browserState.url,
+          title: browserState.title,
+          elementCount: browserState.elements.split('\n').length
+        }
       });
     } catch (error) {
-      logger.error('Failed to get initial browser state:', error);
+      logger.error({
+        message: 'Failed to get initial browser state',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       // Continue without browser state for initial navigation
     }
 
     // Get the next action from the AI
     const nextAction = await getNextAction(goal, currentUrl, actions, browserState);
-    logger.log('\n=== Processing AI Response ===');
-    logger.log('Next action:', nextAction);
+    logger.log('info', { message: '=== Processing AI Response ===' });
+    logger.log('info', { message: 'Next action', data: nextAction });
 
     // Execute the action
     try {
       const result = await actionExecutor.execute(nextAction);
       
-      logger.log('\n=== Returning Response ===');
+      logger.log('info', { message: '=== Returning Response ===' });
       return NextResponse.json({
         actionType: nextAction.type,
         currentUrl: result.currentUrl,
-        isComplete: nextAction.type === 'complete',
-        nextAction,
-        screenshot: result.screenshot,
-        pageState: result.pageState
+        browserState: result.pageState,
+        error: null,
+        action: nextAction
       });
     } catch (error) {
-      logger.error('Action execution failed:', error);
+      logger.error({
+        message: 'Action execution failed',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       return NextResponse.json({
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         currentUrl: await playwrightService.getCurrentUrl()
-      });
+      }, { status: 500 });
     }
   } catch (error) {
-    logger.error('\n=== Error in Agent Endpoint ===');
-    logger.error('Error details:', error);
+    logger.error({
+      message: '=== Error in Agent Endpoint ===',
+      data: { error: error instanceof Error ? error.message : 'Unknown error' }
+    });
     
     // Attempt cleanup even if there's an error
     try {
       await actionExecutor.cleanup();
     } catch (cleanupError) {
-      logger.error('Cleanup error:', cleanupError);
+      logger.error({
+        message: 'Cleanup error',
+        data: { error: cleanupError instanceof Error ? cleanupError.message : 'Unknown error' }
+      });
     }
     
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'An unknown error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }, { status: 500 });
   }
 }

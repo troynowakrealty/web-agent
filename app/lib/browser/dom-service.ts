@@ -43,7 +43,7 @@ export class DOMService {
   private highlightOverlayEnabled: boolean = false;
 
   constructor() {
-    logger.log('DOMService initialized');
+    logger.log('info', { message: 'DOMService initialized' });
   }
 
   private async getCurrentPage(): Promise<Page> {
@@ -55,7 +55,7 @@ export class DOMService {
   }
 
   async getPageState(highlightElements: boolean = true): Promise<DOMState> {
-    logger.log('Getting page state, highlight elements:', highlightElements);
+    logger.log('info', { message: 'Getting page state', data: { highlightElements } });
     const page = await this.getCurrentPage();
 
     if (highlightElements && !this.highlightOverlayEnabled) {
@@ -156,7 +156,7 @@ export class DOMService {
           // Then by position (top to bottom)
           return aRect.top - bRect.top;
         })
-        .slice(0, 50); // Limit to 50 most relevant elements
+        .slice(0, 50);
 
       const elementInfos = prioritizedElements.map((element, index) => {
         const rect = element.getBoundingClientRect();
@@ -232,19 +232,22 @@ export class DOMService {
       };
     }, { colors: HIGHLIGHT_COLORS });
 
-    logger.log('Page state retrieved:', {
-      url: state.url,
-      title: state.title,
-      elementCount: state.elements.length,
-      viewport: state.viewportSize,
-      visibleElements: state.elements.filter(e => e.isVisible).length
+    logger.log('info', {
+      message: 'Page state retrieved',
+      data: {
+        url: state.url,
+        title: state.title,
+        elementCount: state.elements.length,
+        viewport: state.viewportSize,
+        visibleElements: state.elements.filter(e => e.isVisible).length
+      }
     });
 
     return state;
   }
 
   private async injectHighlightStyles() {
-    logger.log('Injecting highlight styles');
+    logger.log('info', { message: 'Injecting highlight styles' });
     const page = await this.getCurrentPage();
     await page.addStyleTag({
       content: `
@@ -263,7 +266,7 @@ export class DOMService {
   }
 
   async scrollToElement(index: number) {
-    logger.log('Scrolling to element:', index);
+    logger.log('info', { message: 'Scrolling to element', data: { index } });
     const page = await this.getCurrentPage();
     const state = await this.getPageState(false);
     const element = state.elements.find(e => e.index === index);
@@ -282,38 +285,44 @@ export class DOMService {
 
       // Wait for scroll to complete
       await page.waitForTimeout(500);
-      logger.log('Scrolled to element position:', element.boundingBox);
+      logger.log('info', { message: 'Scrolled to element position', data: element.boundingBox });
     } else {
-      logger.error('Element not found for scrolling:', index);
+      logger.error({
+        message: 'Element not found for scrolling',
+        data: { index }
+      });
     }
   }
 
   async getElementByIndex(index: number): Promise<ElementInfo | null> {
-    logger.log('Getting element by index:', index);
+    logger.log('info', { message: 'Getting element by index', data: { index } });
     const state = await this.getPageState(false);
     const element = state.elements.find(e => e.index === index) ?? null;
     if (element) {
-      logger.log('Found element:', {
-        tag: element.tag,
-        type: element.type,
-        isVisible: element.isVisible
+      logger.log('info', {
+        message: 'Found element',
+        data: {
+          tag: element.tag,
+          type: element.type,
+          isVisible: element.isVisible
+        }
       });
     } else {
-      logger.log('Element not found');
+      logger.log('info', { message: 'Element not found' });
     }
     return element;
   }
 
   async validateElement(index: number): Promise<boolean> {
-    logger.log('Validating element:', index);
+    logger.log('info', { message: 'Validating element', data: { index } });
     const element = await this.getElementByIndex(index);
     const isValid = element !== null && element.isVisible;
-    logger.log('Element validation result:', { index, isValid });
+    logger.log('info', { message: 'Element validation result', data: { index, isValid } });
     return isValid;
   }
 
   async getFormattedElements(): Promise<string> {
-    logger.log('Getting formatted elements');
+    logger.log('info', { message: 'Getting formatted elements' });
     const state = await this.getPageState(false);
     return state.elements.map(element => {
       const attrs = Object.entries(element.attributes)
@@ -325,7 +334,7 @@ export class DOMService {
   }
 
   async cleanup() {
-    logger.log('Cleaning up DOM service');
+    logger.log('info', { message: 'Cleaning up DOM service' });
     const page = await this.getCurrentPage();
     if (this.highlightOverlayEnabled) {
       await page.evaluate(() => {

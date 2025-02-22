@@ -3,8 +3,9 @@
 import { useState, useRef } from 'react';
 import { useAgent } from '../hooks/useAgent';
 import clsx from 'clsx';
-import { FiPlay, FiLoader, FiX, FiMinus, FiMaximize2 } from 'react-icons/fi';
+import { FiPlay, FiLoader } from 'react-icons/fi';
 import { useAIConfig } from '../hooks/useAIConfig';
+import Image from 'next/image';
 
 export default function Agent() {
   const [goalInput, setGoalInput] = useState('');
@@ -43,11 +44,11 @@ export default function Agent() {
       <div className="bg-black/40 border-b border-[#4B9CDB]/30 p-4">
         <div className="max-w-6xl mx-auto flex items-center justify-center relative">
           <div className="absolute left-0">
-            <img src="/airas-icon.svg" alt="Airas Logo" className="w-8 h-8" />
+            <Image src="/airas-icon.svg" alt="Airas Logo" width={32} height={32} />
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-3">
-              <img src="/airas-logo.svg" alt="Airas" className="h-8" />
+              <Image src="/airas-logo.svg" alt="Airas" width={32} height={32} />
               <h1 className="text-3xl font-bold tracking-[0.2em] text-[#4B9CDB]">AGENT</h1>
             </div>
             <p className="text-xs text-[#4B9CDB]/70 tracking-[0.3em] mt-1">v0.2 BETA • CLASSIFIED</p>
@@ -73,7 +74,7 @@ export default function Agent() {
             )}
           </div>
           <div className="absolute right-0">
-            <img src="/airas-icon.svg" alt="Airas Logo" className="w-8 h-8" />
+            <Image src="/airas-icon.svg" alt="Airas Logo" width={32} height={32} />
           </div>
         </div>
       </div>
@@ -114,12 +115,12 @@ export default function Agent() {
                       )}
                       {action.type === 'click' && 'text' in action && typeof action.text === 'string' && (
                         <div className="mt-1 text-xs text-[#4B9CDB]/70">
-                          Clicking: "{action.text}"
+                          Clicking: &quot;{action.text}&quot;
                         </div>
                       )}
                       {action.type === 'type' && (
                         <div className="mt-1 text-xs text-[#4B9CDB]/70">
-                          Typing: "{action.text}"
+                          Typing: &quot;{action.text}&quot;
                         </div>
                       )}
                     </div>
@@ -256,7 +257,11 @@ export default function Agent() {
             <div className="flex-1 bg-[#0A0F1D] flex items-center justify-center">
               <div className="text-center space-y-4 opacity-50">
                 <div className="w-24 h-24 relative mx-auto">
-                  <img src="/airas-icon.svg" alt="Airas Logo" className="w-full h-full" />
+                  <Image
+                    src="/airas-icon.svg"
+                    alt="Airas Logo"
+                    layout="fill"
+                  />
                 </div>
                 <p className="text-xl text-[#4B9CDB] font-bold tracking-wider">
                   CHROMIUM WINDOW WILL APPEAR HERE

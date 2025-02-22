@@ -15,7 +15,7 @@ export class PlaywrightService {
     }
 
     try {
-      logger.log('Initializing Playwright browser');
+      logger.log('info', { message: 'Initializing Playwright browser' });
       this.browser = await chromium.launch({
         headless: false
       });
@@ -25,7 +25,7 @@ export class PlaywrightService {
 
       // Listen for new pages/tabs
       this.context.on('page', async (page) => {
-        logger.log('New page created');
+        logger.log('info', { message: 'New page created' });
         this.pages.push(page);
         
         // Wait for the new page to be ready
@@ -36,7 +36,7 @@ export class PlaywrightService {
         
         // Set up page close handler
         page.on('close', () => {
-          logger.log('Page closed');
+          logger.log('info', { message: 'Page closed' });
           this.pages = this.pages.filter(p => p !== page);
           if (this.page === page) {
             // If the closed page was current, switch back to the last available page
@@ -50,7 +50,7 @@ export class PlaywrightService {
       await this.page.setViewportSize(config.browser.viewport);
     } catch (error) {
       if (error instanceof Error && error.message.includes("Executable doesn't exist")) {
-        logger.log('Chromium not found, attempting to install...');
+        logger.log('info', { message: 'Chromium not found, attempting to install...' });
         try {
           execSync('npx playwright install chromium', { stdio: 'inherit' });
           // Retry browser launch after installation
@@ -62,7 +62,10 @@ export class PlaywrightService {
           this.pages.push(this.page);
           await this.page.setViewportSize(config.browser.viewport);
         } catch (installError) {
-          logger.error('Failed to install Chromium:', installError);
+          logger.error({
+            message: 'Failed to install Chromium',
+            data: { error: installError instanceof Error ? installError.message : 'Unknown error' }
+          });
           throw new Error('Failed to initialize browser. Please run: npx playwright install chromium');
         }
       } else {
@@ -80,11 +83,11 @@ export class PlaywrightService {
   }
 
   async switchToPage(predicate: (page: Page) => Promise<boolean>): Promise<boolean> {
-    logger.log('Attempting to switch to matching page');
+    logger.log('info', { message: 'Attempting to switch to matching page' });
     for (const page of this.pages) {
       if (await predicate(page)) {
         this.page = page;
-        logger.log('Switched to matching page');
+        logger.log('info', { message: 'Switched to matching page' });
         return true;
       }
     }
@@ -95,23 +98,35 @@ export class PlaywrightService {
     // Close all pages except the main one
     for (const page of this.pages) {
       if (page !== this.page) {
-        await page.close().catch(e => logger.error('Error closing page:', e));
+        await page.close().catch(e => logger.error({
+          message: 'Error closing page',
+          data: { error: e instanceof Error ? e.message : 'Unknown error' }
+        }));
       }
     }
     this.pages = this.page ? [this.page] : [];
 
     if (this.page) {
-      await this.page.close().catch(e => logger.error('Error closing page:', e));
+      await this.page.close().catch(e => logger.error({
+        message: 'Error closing page',
+        data: { error: e instanceof Error ? e.message : 'Unknown error' }
+      }));
       this.page = null;
     }
 
     if (this.context) {
-      await this.context.close().catch(e => logger.error('Error closing context:', e));
+      await this.context.close().catch(e => logger.error({
+        message: 'Error closing context',
+        data: { error: e instanceof Error ? e.message : 'Unknown error' }
+      }));
       this.context = null;
     }
 
     if (this.browser) {
-      await this.browser.close().catch(e => logger.error('Error closing browser:', e));
+      await this.browser.close().catch(e => logger.error({
+        message: 'Error closing browser',
+        data: { error: e instanceof Error ? e.message : 'Unknown error' }
+      }));
       this.browser = null;
     }
   }
@@ -119,14 +134,17 @@ export class PlaywrightService {
   async goto(url: string) {
     if (!this.page) throw new Error('Browser not initialized');
     
-    logger.log('Navigating to:', url);
+    logger.log('info', { message: 'Navigating to', data: { url } });
     try {
       await this.page.goto(url, {
         waitUntil: 'networkidle',
         timeout: config.browser.timeouts.navigation
       });
     } catch (error) {
-      logger.error('Navigation failed, retrying with domcontentloaded:', error);
+      logger.error({
+        message: 'Navigation failed, retrying with domcontentloaded',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       // Retry with less strict wait condition
       await this.page.goto(url, {
         waitUntil: 'domcontentloaded',
@@ -140,7 +158,7 @@ export class PlaywrightService {
   async clickBySelector(selector: string) {
     if (!this.page) throw new Error('Browser not initialized');
 
-    logger.log('Clicking element by selector:', selector);
+    logger.log('info', { message: 'Clicking element by selector', data: { selector } });
     try {
       // Wait longer for dynamic content
       const element = await this.page.waitForSelector(selector, { 
@@ -183,13 +201,16 @@ export class PlaywrightService {
 
         // Check if a new page was opened
         if (this.pages.length > pageCountBefore) {
-          logger.log('New page opened after click');
+          logger.log('info', { message: 'New page opened after click' });
           // The page event handler will automatically switch to the new page
           // Wait for the new page to be ready
           await this.page?.waitForLoadState('domcontentloaded');
         }
       } catch (error) {
-        logger.log('Direct click failed, trying alternative methods...');
+        logger.log('info', { 
+          message: 'Direct click failed, trying alternative methods',
+          data: { error: error instanceof Error ? error.message : 'Unknown error' }
+        });
         
         // Wait a bit before trying alternative
         await this.page.waitForTimeout(500);
@@ -210,14 +231,17 @@ export class PlaywrightService {
 
         // Check again for new pages
         if (this.pages.length > pageCountBefore) {
-          logger.log('New page opened after alternative click');
+          logger.log('info', { message: 'New page opened after alternative click' });
           await this.page?.waitForLoadState('domcontentloaded');
         }
       }
       
-      logger.log('Successfully clicked element');
+      logger.log('info', { message: 'Successfully clicked element' });
     } catch (error) {
-      logger.error('Click by selector failed:', error);
+      logger.error({
+        message: 'Click by selector failed',
+        data: { error: error instanceof Error ? error.message : 'Unknown error', selector }
+      });
       throw new Error(`Failed to click element with selector: ${selector}`);
     }
   }
@@ -225,7 +249,7 @@ export class PlaywrightService {
   async typeBySelector(selector: string, text: string) {
     if (!this.page) throw new Error('Browser not initialized');
 
-    logger.log('Typing text by selector:', { selector, text });
+    logger.log('info', { message: 'Typing text by selector', data: { selector, text } });
     try {
       const element = await this.page.waitForSelector(selector, { 
         state: 'visible', 
@@ -266,7 +290,10 @@ export class PlaywrightService {
         // Wait for results to load
         await this.page.waitForTimeout(2000);
       } catch (error) {
-        logger.log('Direct type failed, trying alternative methods...');
+        logger.log('info', { 
+          message: 'Direct type failed, trying alternative methods',
+          data: { error: error instanceof Error ? error.message : 'Unknown error' }
+        });
         
         // Try typing with JavaScript
         await this.page.evaluate(({ sel, text }) => {
@@ -284,9 +311,12 @@ export class PlaywrightService {
         await this.page.waitForTimeout(2000);
       }
       
-      logger.log('Successfully typed text');
+      logger.log('info', { message: 'Successfully typed text' });
     } catch (error) {
-      logger.error('Type by selector failed:', error);
+      logger.error({
+        message: 'Type by selector failed',
+        data: { error: error instanceof Error ? error.message : 'Unknown error', selector }
+      });
       throw new Error(`Failed to type text into element with selector: ${selector}`);
     }
   }
@@ -299,7 +329,7 @@ export class PlaywrightService {
   async takeScreenshot(): Promise<string> {
     if (!this.page) throw new Error('Browser not initialized');
 
-    logger.log('Taking screenshot');
+    logger.log('info', { message: 'Taking screenshot' });
     try {
       const screenshot = await this.page.screenshot({
         type: 'jpeg',
@@ -309,7 +339,10 @@ export class PlaywrightService {
 
       return screenshot.toString('base64');
     } catch (error) {
-      logger.error('Screenshot failed:', error);
+      logger.error({
+        message: 'Screenshot failed',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       throw new Error('Failed to take screenshot');
     }
   }
@@ -322,7 +355,10 @@ export class PlaywrightService {
         timeout: config.browser.timeouts.networkIdle
       });
     } catch (error) {
-      logger.log('Network idle timeout reached, continuing anyway');
+      logger.log('info', { 
+        message: 'Network idle timeout reached, continuing anyway',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
     }
 
     // Additional wait for any dynamic content
@@ -347,7 +383,10 @@ export class PlaywrightService {
 
       return elements;
     } catch (error) {
-      logger.error('Accessibility evaluation failed:', error);
+      logger.error({
+        message: 'Accessibility evaluation failed',
+        data: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       return [];
     }
   }

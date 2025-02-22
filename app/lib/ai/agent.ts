@@ -1,33 +1,38 @@
-import { Action, BrowserState } from '../actions/types';
-import { config } from '../../config';
+import { Action } from '../actions/types';
 import { logger } from '../../utils/logger';
 import { AIProviderFactory } from './provider-factory';
+import { config } from '../../config';
 import { ChatMessage, ChatMessageRole } from './types';
 
-// Initialize AI provider
-const aiProvider = AIProviderFactory.createProvider(config.ai);
-
 interface AgentContext {
-  currentUrl: string;
-  actionsCount: number;
-  lastAction?: string;
-  browserState?: BrowserState;
+  currentUrl: string | null;
+  actions: Action[];
+  browserState?: {
+    title: string;
+    elements: string;
+    scrollPosition: { x: number; y: number };
+    screenshot?: string;
+  };
 }
 
 export async function getNextAction(
   goal: string,
   context: AgentContext
 ): Promise<Action> {
-  logger.log('\n=== Getting Next Action ===');
-  logger.log('Current State:', {
-    goal,
-    currentUrl: context.currentUrl,
-    actionsCount: context.actionsCount,
-    lastAction: context.lastAction
+  logger.log('info', { message: '=== Getting Next Action ===' });
+  logger.log('info', {
+    message: 'Current State',
+    data: {
+      goal,
+      currentUrl: context.currentUrl,
+      actionsCount: context.actions.length,
+      lastAction: context.actions[context.actions.length - 1]?.description || 'No previous actions'
+    }
   });
 
-  // Prepare system message with current state
-  const systemMessage = `You are an AI web navigation expert. Given a user's goal and the current webpage view, determine the next action to take.
+  const systemMessage: ChatMessage = {
+    role: 'system' as ChatMessageRole,
+    content: `You are an AI web navigation expert. Given a user's goal and the current webpage view, determine the next action to take.
     You must return a JSON object with one of these formats:
     
     For initial navigation:
@@ -67,6 +72,18 @@ export async function getNextAction(
       "evaluation": "success" | "failed" | "partial"
     }
 
+    CRITICAL INSTRUCTIONS FOR TASK COMPLETION:
+    1. For flight searches:
+       - Mark as complete when flight options are clearly displayed
+       - Include available flight details in the completion summary
+       - Don't continue clicking if valid flight results are shown
+      
+    2. General completion criteria:
+       - If the current view shows the information needed to satisfy the goal
+       - If further actions would not provide additional relevant information
+       - When the core objective has been achieved
+       - When search results or options are clearly displayed
+
     CRITICAL INSTRUCTIONS FOR ELEMENT INTERACTION:
     1. Elements are indexed starting from 1 and are shown with [index] in the page state
     2. Each element entry shows:
@@ -80,78 +97,76 @@ export async function getNextAction(
        - Check if the element is visible (shown in page state)
        - Ensure the element is interactive (links, buttons, inputs, etc.)
        - Use the exact index number shown in brackets
-
-    4. HANDLE OVERLAYS AND MODALS FIRST:
-       - If there are any modals, popups, or overlays visible, close them first
-       - Look for close buttons (usually marked with 'X' or 'Close')
-       - Handle these before attempting any other interactions
-       - Common attributes: role="dialog", aria-modal="true"
     
-    5. For clicking:
+    4. For clicking:
        - Only click elements that are actually clickable
        - Verify the element's purpose matches your intent
        - If element is not in view, use scroll action first
-       - For close buttons, look for 'X', '×', 'Close', or similar text
     
-    6. For typing:
+    5. For typing:
        - Only type in input fields, textareas, or contenteditable elements
        - Verify the input field is visible and enabled
-       - Make sure no modals or overlays are blocking the input
        - Keep input text relevant and concise
     
-    7. For scrolling:
+    6. For scrolling:
        - Use when elements are out of the viewport
        - Scroll to elements before interacting with them
        - Check element visibility after scrolling
 
-    8. Page State Understanding:
+    7. Page State Understanding:
        - Review the full element list before deciding actions
        - Consider element hierarchy and relationships
        - Pay attention to element attributes and roles
        - Use element text content to confirm correct targets
-       - Check for overlays or modals that might block interaction
 
     CRITICAL RULES:
-    1. ALWAYS handle overlays and modals first before attempting other actions
-    2. If you see a close button (X) on a modal, click it before proceeding
-    3. Verify elements are not obscured by overlays before interacting
-    4. Use the most direct path to achieve the goal
-    5. ANALYZE THE CURRENT VIEW FIRST - check for any blocking elements
+    1. ALWAYS use real, legitimate websites - never use example.com or placeholder URLs
+    2. Choose well-known, reputable websites appropriate for the task
+    3. Use the most direct and reliable path to achieve the goal
+    4. ANALYZE THE CURRENT VIEW FIRST - if you see enough information to satisfy the goal, complete the mission
+    5. Only navigate further if the current view doesn't contain enough information
     
     Current goal: ${goal}
     Current URL: ${context.currentUrl}
-    Actions taken: ${context.lastAction ? context.lastAction : 'None'}
-    
+    Actions taken: ${context.actions.map(a => a.description).join(', ')}
+
     ${context.browserState ? `
     Current page state:
     Title: ${context.browserState.title}
     
     Available Elements:
-    ${context.browserState.elements.split('\n').map(line => line.trim()).join('\n')}
+    ${context.browserState.elements}
     
     Current scroll position: x=${context.browserState.scrollPosition.x}, y=${context.browserState.scrollPosition.y}
     ` : ''}
-    `;
+    `
+  };
 
-  logger.log('System prompt length:', systemMessage.length);
-  logger.log('Has browser state:', !!context.browserState);
+  const userMessage: ChatMessage = {
+    role: 'user' as ChatMessageRole,
+    content: `Look at the current webpage view and available elements carefully. What should be the next action to achieve: ${goal}`
+  };
 
-  // Request AI decision
-  logger.log('\n=== Requesting AI Decision ===');
-  const messages: ChatMessage[] = [
-    { role: 'system' as ChatMessageRole, content: systemMessage },
-    { role: 'user' as ChatMessageRole, content: 'Look at the current webpage view and available elements carefully. What should be the next action to achieve: ' + goal }
-  ];
+  logger.log('info', { message: '=== Requesting AI Decision ===' });
+  logger.log('info', { message: 'System prompt length', data: systemMessage.content.length });
+  logger.log('info', { message: 'Has browser state', data: !!context.browserState });
 
-  const response = await aiProvider.chat(messages);
-  logger.log('\n=== Processing AI Response ===');
+  const aiProvider = AIProviderFactory.createProvider(config.ai);
+  const response = context.browserState?.screenshot 
+    ? await aiProvider.chatWithVision([systemMessage, userMessage], context.browserState.screenshot)
+    : await aiProvider.chat([systemMessage, userMessage]);
 
+  logger.log('info', { message: '=== Processing AI Response ===' });
+  
   try {
-    const action = JSON.parse(response) as Action;
-    logger.log('Next action:', action);
-    return action;
+    const nextAction = JSON.parse(response);
+    logger.log('info', { message: 'Next action', data: nextAction });
+    return nextAction;
   } catch (error) {
-    logger.error('Failed to parse AI response:', error);
-    throw new Error('Invalid AI response format');
+    logger.error({ 
+      message: 'Failed to parse AI response',
+      data: { error: error instanceof Error ? error.message : 'Unknown error', response }
+    });
+    throw new Error('Failed to parse AI response as JSON');
   }
 } 

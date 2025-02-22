@@ -1,4 +1,4 @@
-import { ChatCompletionMessageParam } from 'openai/resources/chat';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 export interface AIProvider {
   chat(messages: ChatMessage[]): Promise<string>;
