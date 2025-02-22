@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  --foreground-rgb: 229, 229, 229;
+  --background-start-rgb: 10, 15, 29;
+  --background-end-rgb: 10, 15, 29;
   --background: #0A0F1D;
   --foreground: #E5B64A;
   --accent: #C4A24D;
@@ -12,8 +15,13 @@
 }
 
 body {
-  color: var(--text);
-  background: var(--background);
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100vh;
   font-family: var(--font-geist-mono), monospace;
 }
 

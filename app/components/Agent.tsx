@@ -44,11 +44,23 @@ export default function Agent() {
       <div className="bg-black/40 border-b border-[#4B9CDB]/30 p-4">
         <div className="max-w-6xl mx-auto flex items-center justify-center relative">
           <div className="absolute left-0">
-            <Image src="/airas-icon.svg" alt="Airas Logo" width={32} height={32} />
+            <Image 
+              src="/airas-icon.svg" 
+              alt="Airas Logo" 
+              width={32} 
+              height={32}
+              className="w-8 h-8"
+            />
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-3">
-              <Image src="/airas-logo.svg" alt="Airas" width={32} height={32} />
+              <Image 
+                src="/airas-logo.svg" 
+                alt="Airas" 
+                width={32} 
+                height={32}
+                className="w-8 h-8"
+              />
               <h1 className="text-3xl font-bold tracking-[0.2em] text-[#4B9CDB]">AGENT</h1>
             </div>
             <p className="text-xs text-[#4B9CDB]/70 tracking-[0.3em] mt-1">v0.2 BETA • CLASSIFIED</p>
@@ -74,7 +86,13 @@ export default function Agent() {
             )}
           </div>
           <div className="absolute right-0">
-            <Image src="/airas-icon.svg" alt="Airas Logo" width={32} height={32} />
+            <Image 
+              src="/airas-icon.svg" 
+              alt="Airas Logo" 
+              width={32} 
+              height={32}
+              className="w-8 h-8"
+            />
           </div>
         </div>
       </div>
@@ -260,7 +278,8 @@ export default function Agent() {
                   <Image
                     src="/airas-icon.svg"
                     alt="Airas Logo"
-                    layout="fill"
+                    fill
+                    className="object-contain"
                   />
                 </div>
                 <p className="text-xl text-[#4B9CDB] font-bold tracking-wider">
