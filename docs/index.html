@@ -8,11 +8,11 @@
     <style>
         :root {
             --background: #0A0F1D;
-            --foreground: #E5B64A;
-            --accent: #C4A24D;
+            --foreground: #4B9CDB;
+            --accent: #2B7DBD;
             --text: #E5E5E5;
-            --card-bg: rgba(229, 182, 74, 0.1);
-            --border: rgba(229, 182, 74, 0.3);
+            --card-bg: rgba(75, 156, 219, 0.1);
+            --border: rgba(75, 156, 219, 0.3);
         }
 
         * {
@@ -36,7 +36,7 @@
             text-align: center;
             border-bottom: 1px solid var(--border);
             position: relative;
-            background: linear-gradient(180deg, rgba(229, 182, 74, 0.1) 0%, rgba(10, 15, 29, 0) 100%);
+            background: linear-gradient(180deg, rgba(75, 156, 219, 0.1) 0%, rgba(10, 15, 29, 0) 100%);
         }
 
         .logo-container {
@@ -63,7 +63,7 @@
             font-size: 3.5rem;
             letter-spacing: 0.2em;
             margin-bottom: 0.5rem;
-            text-shadow: 0 0 20px rgba(229, 182, 74, 0.3);
+            text-shadow: 0 0 20px rgba(75, 156, 219, 0.3);
         }
 
         .subtitle {
@@ -126,7 +126,7 @@
 
         .feature:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 20px rgba(229, 182, 74, 0.1);
+            box-shadow: 0 4px 20px rgba(75, 156, 219, 0.1);
         }
 
         .feature h3 {
@@ -153,13 +153,13 @@
             border-radius: 8px;
             font-weight: bold;
             transition: all 0.2s;
-            box-shadow: 0 4px 20px rgba(229, 182, 74, 0.2);
+            box-shadow: 0 4px 20px rgba(75, 156, 219, 0.2);
         }
 
         .button:hover {
-            opacity: 0.9;
+            background: var(--accent);
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(229, 182, 74, 0.3);
+            box-shadow: 0 6px 25px rgba(75, 156, 219, 0.3);
         }
 
         .github-icon {
@@ -172,7 +172,7 @@
             text-align: center;
             padding: 2rem;
             border-top: 1px solid var(--border);
-            background: linear-gradient(0deg, rgba(229, 182, 74, 0.1) 0%, rgba(10, 15, 29, 0) 100%);
+            background: linear-gradient(0deg, rgba(75, 156, 219, 0.1) 0%, rgba(10, 15, 29, 0) 100%);
         }
 
         .built-by {
@@ -194,24 +194,24 @@
         .built-by a:hover {
             text-decoration: underline;
         }
+
+        /* Reticle SVG colors */
+        .reticle circle, .reticle path {
+            stroke: var(--foreground) !important;
+        }
+        .reticle circle:nth-child(2) {
+            fill: var(--foreground) !important;
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="logo-container">
-            <svg class="reticle" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" stroke="#E5B64A" stroke-width="2" stroke-dasharray="4 4"/>
-                <circle cx="20" cy="20" r="2" fill="#E5B64A"/>
-                <path d="M20 5V35M5 20H35" stroke="#E5B64A" stroke-width="1"/>
-            </svg>
+            <img src="logo.svg" alt="Airas Logo" class="reticle">
             <h1>AIRAS AGENT</h1>
-            <svg class="reticle" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" stroke="#E5B64A" stroke-width="2" stroke-dasharray="4 4"/>
-                <circle cx="20" cy="20" r="2" fill="#E5B64A"/>
-                <path d="M20 5V35M5 20H35" stroke="#E5B64A" stroke-width="1"/>
-            </svg>
+            <img src="logo.svg" alt="Airas Logo" class="reticle">
         </div>
-        <p class="subtitle">v0.1 BETA • CLASSIFIED</p>
+        <p class="subtitle">v0.2 BETA • CLASSIFIED</p>
         <p class="hero-text">
             An autonomous web agent powered by GPT-4 Vision, capable of navigating and interacting with any website through natural language commands.
         </p>
@@ -226,9 +226,9 @@
             <div class="feature">
                 <h3>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#E5B64A" stroke-width="2"/>
-                        <path d="M2 17L12 22L22 17" stroke="#E5B64A" stroke-width="2"/>
-                        <path d="M2 12L12 17L22 12" stroke="#E5B64A" stroke-width="2"/>
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#4B9CDB" stroke-width="2"/>
+                        <path d="M2 17L12 22L22 17" stroke="#4B9CDB" stroke-width="2"/>
+                        <path d="M2 12L12 17L22 12" stroke="#4B9CDB" stroke-width="2"/>
                     </svg>
                     Autonomous Navigation
                 </h3>
@@ -237,8 +237,8 @@
             <div class="feature">
                 <h3>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="3" stroke="#E5B64A" stroke-width="2"/>
-                        <path d="M20.188 10.9343C20.5762 11.4056 20.7703 11.6412 20.7703 12C20.7703 12.3588 20.5762 12.5944 20.188 13.0657C18.7679 14.7899 15.6357 18 12 18C8.36427 18 5.23206 14.7899 3.81197 13.0657C3.42381 12.5944 3.22973 12.3588 3.22973 12C3.22973 11.6412 3.42381 11.4056 3.81197 10.9343C5.23206 9.21014 8.36427 6 12 6C15.6357 6 18.7679 9.21014 20.188 10.9343Z" stroke="#E5B64A" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="3" stroke="#4B9CDB" stroke-width="2"/>
+                        <path d="M20.188 10.9343C20.5762 11.4056 20.7703 11.6412 20.7703 12C20.7703 12.3588 20.5762 12.5944 20.188 13.0657C18.7679 14.7899 15.6357 18 12 18C8.36427 18 5.23206 14.7899 3.81197 13.0657C3.42381 12.5944 3.22973 12.3588 3.22973 12C3.22973 11.6412 3.42381 11.4056 3.81197 10.9343C5.23206 9.21014 8.36427 6 12 6C15.6357 6 18.7679 9.21014 20.188 10.9343Z" stroke="#4B9CDB" stroke-width="2"/>
                     </svg>
                     Vision Intelligence
                 </h3>
@@ -247,8 +247,8 @@
             <div class="feature">
                 <h3>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" stroke="#E5B64A" stroke-width="2"/>
-                        <path d="M12 8V16M8 12H16" stroke="#E5B64A" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="10" stroke="#4B9CDB" stroke-width="2"/>
+                        <path d="M12 8V16M8 12H16" stroke="#4B9CDB" stroke-width="2"/>
                     </svg>
                     Precise Interaction
                 </h3>
@@ -257,7 +257,7 @@
         </div>
 
         <div class="cta">
-            <a href="https://github.com/GPT-Protocol/airas-agent" class="button">
+            <a href="https://github.com/airas-network/airas-agent" class="button">
                 <img src="github.svg" alt="GitHub" class="github-icon">
                 VIEW ON GITHUB
             </a>
