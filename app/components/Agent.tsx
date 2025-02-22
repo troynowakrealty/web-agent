@@ -16,7 +16,6 @@ export default function Agent() {
     error,
     isComplete,
     currentUrl,
-    screenshot,
     startMission,
     reset
   } = useAgent();
@@ -80,9 +79,9 @@ export default function Agent() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-4 p-4">
+      <div className="flex-1 overflow-hidden flex">
         {/* Left Panel - Mission Status & Control */}
-        <div className="w-full md:w-96 flex flex-col gap-4 overflow-hidden">
+        <div className="w-[480px] flex-shrink-0 p-4 flex flex-col gap-4 overflow-hidden border-r border-[#4B9CDB]/30">
           {/* Mission Status */}
           <div className="flex-1 bg-black/40 rounded-lg border border-[#4B9CDB]/30 p-4 overflow-hidden flex flex-col">
             <h2 className="text-lg font-bold tracking-wide mb-4 text-[#4B9CDB]">MISSION STATUS</h2>
@@ -236,46 +235,34 @@ export default function Agent() {
           </div>
         </div>
 
-        {/* Main Viewport */}
-        <div className="flex-1 flex flex-col bg-black/40 rounded-lg border border-[#4B9CDB]/30 overflow-hidden">
-          {/* Browser Chrome */}
-          <div className="bg-[#1A1F2E] border-b border-[#4B9CDB]/30 flex items-center p-2 gap-2">
-            <div className="flex items-center gap-1.5">
-              <button className="w-3 h-3 rounded-full bg-[#FF5F57] border border-[#FF5F57]/50" />
-              <button className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#FFBD2E]/50" />
-              <button className="w-3 h-3 rounded-full bg-[#28C840] border border-[#28C840]/50" />
-            </div>
-            {currentUrl && (
+        {/* Right Panel - Chrome Placeholder */}
+        <div className="flex-1 p-4 bg-black/20">
+          <div className="h-full rounded-lg border border-[#4B9CDB]/30 overflow-hidden flex flex-col">
+            {/* Chrome Header */}
+            <div className="bg-[#1A1F2E] p-2 flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#FF5F57]" />
+                <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
+                <div className="w-3 h-3 rounded-full bg-[#28C840]" />
+              </div>
               <div className="flex-1 ml-4">
                 <div className="bg-[#0A0F1D] rounded px-3 py-1 text-sm text-[#4B9CDB]/70 truncate border border-[#4B9CDB]/20">
-                  {currentUrl}
+                  {currentUrl || 'Awaiting mission...'}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Browser Content */}
-          <div className="flex-1 relative bg-[#0A0F1D] overflow-auto">
-            {currentUrl && screenshot ? (
-              <div className="min-h-full">
-                <img 
-                  src={`data:image/jpeg;base64,${screenshot}`}
-                  alt="Current webpage"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center space-y-4">
-                  <div className="w-24 h-24 relative mx-auto">
-                    <img src="/airas-icon.svg" alt="Airas Logo" className="w-full h-full opacity-30" />
-                  </div>
-                  <p className="text-xl text-[#4B9CDB] font-bold tracking-wider">
-                    {currentUrl ? 'PROCESSING MISSION...' : 'AWAITING MISSION BRIEFING...'}
-                  </p>
+            {/* Chrome Content */}
+            <div className="flex-1 bg-[#0A0F1D] flex items-center justify-center">
+              <div className="text-center space-y-4 opacity-50">
+                <div className="w-24 h-24 relative mx-auto">
+                  <img src="/airas-icon.svg" alt="Airas Logo" className="w-full h-full" />
                 </div>
+                <p className="text-xl text-[#4B9CDB] font-bold tracking-wider">
+                  CHROMIUM WINDOW WILL APPEAR HERE
+                </p>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
