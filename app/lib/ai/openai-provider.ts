@@ -25,7 +25,7 @@ export class OpenAIProvider implements AIProvider {
       const response = await this.client.chat.completions.create({
         model: this.model,
         messages: messages as any, // Type assertion needed due to OpenAI types mismatch
-        temperature: 0.7,
+        temperature: 0.5,
         response_format: { type: "json_object" }
       });
 
@@ -70,7 +70,7 @@ export class OpenAIProvider implements AIProvider {
       const response = await this.client.chat.completions.create({
         model: this.visionModel,
         messages: messagesWithImage as any, // Type assertion needed due to OpenAI types mismatch
-        temperature: 0.7,
+        temperature: 0.5,
         response_format: { type: "json_object" }
       });
 

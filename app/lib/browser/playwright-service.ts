@@ -1,11 +1,13 @@
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, Page, BrowserContext } from 'playwright';
 import { logger } from '../../utils/logger';
 import { config } from '../../config';
 import { execSync } from 'child_process';
 
 export class PlaywrightService {
   private browser: Browser | null = null;
+  private context: BrowserContext | null = null;
   private page: Page | null = null;
+  private pages: Page[] = [];
 
   async initialize() {
     if (this.browser) {
@@ -18,7 +20,33 @@ export class PlaywrightService {
         headless: false
       });
 
-      this.page = await this.browser.newPage();
+      // Create a browser context
+      this.context = await this.browser.newContext();
+
+      // Listen for new pages/tabs
+      this.context.on('page', async (page) => {
+        logger.log('New page created');
+        this.pages.push(page);
+        
+        // Wait for the new page to be ready
+        await page.waitForLoadState('domcontentloaded');
+        
+        // Switch to the new page
+        this.page = page;
+        
+        // Set up page close handler
+        page.on('close', () => {
+          logger.log('Page closed');
+          this.pages = this.pages.filter(p => p !== page);
+          if (this.page === page) {
+            // If the closed page was current, switch back to the last available page
+            this.page = this.pages[this.pages.length - 1] || null;
+          }
+        });
+      });
+
+      this.page = await this.context.newPage();
+      this.pages.push(this.page);
       await this.page.setViewportSize(config.browser.viewport);
     } catch (error) {
       if (error instanceof Error && error.message.includes("Executable doesn't exist")) {
@@ -29,7 +57,9 @@ export class PlaywrightService {
           this.browser = await chromium.launch({
             headless: false
           });
-          this.page = await this.browser.newPage();
+          this.context = await this.browser.newContext();
+          this.page = await this.context.newPage();
+          this.pages.push(this.page);
           await this.page.setViewportSize(config.browser.viewport);
         } catch (installError) {
           logger.error('Failed to install Chromium:', installError);
@@ -45,11 +75,41 @@ export class PlaywrightService {
     return this.page;
   }
 
+  async getAllPages(): Promise<Page[]> {
+    return this.pages;
+  }
+
+  async switchToPage(predicate: (page: Page) => Promise<boolean>): Promise<boolean> {
+    logger.log('Attempting to switch to matching page');
+    for (const page of this.pages) {
+      if (await predicate(page)) {
+        this.page = page;
+        logger.log('Switched to matching page');
+        return true;
+      }
+    }
+    return false;
+  }
+
   async cleanup() {
+    // Close all pages except the main one
+    for (const page of this.pages) {
+      if (page !== this.page) {
+        await page.close().catch(e => logger.error('Error closing page:', e));
+      }
+    }
+    this.pages = this.page ? [this.page] : [];
+
     if (this.page) {
       await this.page.close().catch(e => logger.error('Error closing page:', e));
       this.page = null;
     }
+
+    if (this.context) {
+      await this.context.close().catch(e => logger.error('Error closing context:', e));
+      this.context = null;
+    }
+
     if (this.browser) {
       await this.browser.close().catch(e => logger.error('Error closing browser:', e));
       this.browser = null;
@@ -107,6 +167,9 @@ export class PlaywrightService {
       // Wait for element to be stable (no movement)
       await this.page.waitForTimeout(500);
 
+      // Store the current number of pages before clicking
+      const pageCountBefore = this.pages.length;
+
       // Try direct click first
       try {
         await element.click({
@@ -114,6 +177,17 @@ export class PlaywrightService {
           force: false,
           delay: 100  // Add slight delay
         });
+
+        // Wait a bit to see if a new page opens
+        await this.page.waitForTimeout(1000);
+
+        // Check if a new page was opened
+        if (this.pages.length > pageCountBefore) {
+          logger.log('New page opened after click');
+          // The page event handler will automatically switch to the new page
+          // Wait for the new page to be ready
+          await this.page?.waitForLoadState('domcontentloaded');
+        }
       } catch (error) {
         logger.log('Direct click failed, trying alternative methods...');
         
@@ -133,6 +207,12 @@ export class PlaywrightService {
         
         // Wait longer to see if the click had an effect
         await this.page.waitForTimeout(2000);
+
+        // Check again for new pages
+        if (this.pages.length > pageCountBefore) {
+          logger.log('New page opened after alternative click');
+          await this.page?.waitForLoadState('domcontentloaded');
+        }
       }
       
       logger.log('Successfully clicked element');
