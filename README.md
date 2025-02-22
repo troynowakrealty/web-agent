@@ -1,4 +1,4 @@
-# 007 Agent
+# AIRAS Agent
 
 <img width="1425" alt="screenshot" src="https://github.com/user-attachments/assets/f78754d5-1bd1-489b-9720-9d5867abd6d4" />
 
@@ -12,8 +12,8 @@ A web automation system that uses AI with vision capabilities and Playwright to 
 
 1. **Clone and Install**
    ```bash
-   git clone https://github.com/GPT-Protocol/007-agent.git
-   cd 007-agent
+   git clone https://github.com/GPT-Protocol/airas-agent.git
+   cd airas-agent
    npm install
    ```
 
@@ -344,8 +344,8 @@ This project is currently in its early stages and we welcome contributions from 
 
 1. **Fork the Repository**
    ```bash
-   git clone https://github.com/GPT-Protocol/007-agent.git
-   cd 007-agent
+   git clone https://github.com/GPT-Protocol/airas-agent.git
+   cd airas-agent
    ```
 
 2. **Install Dependencies**
