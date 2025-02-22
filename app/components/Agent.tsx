@@ -50,7 +50,7 @@ export default function Agent() {
               <img src="/airas-logo.svg" alt="Airas" className="h-8" />
               <h1 className="text-3xl font-bold tracking-[0.2em] text-[#4B9CDB]">AGENT</h1>
             </div>
-            <p className="text-xs text-[#4B9CDB]/70 tracking-[0.3em] mt-1">v0.1 BETA • CLASSIFIED</p>
+            <p className="text-xs text-[#4B9CDB]/70 tracking-[0.3em] mt-1">v0.2 BETA • CLASSIFIED</p>
             {aiConfig && (
               <div className="mt-2 flex items-center justify-center gap-4">
                 <div className="flex items-center gap-2">
