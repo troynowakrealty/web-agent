@@ -269,17 +269,16 @@ export class PlaywrightService {
         logger.log('Direct type failed, trying alternative methods...');
         
         // Try typing with JavaScript
-        const script = `(sel, val) => {
-          const element = document.querySelector(sel);
+        await this.page.evaluate(({ sel, text }) => {
+          const element = document.querySelector(sel) as HTMLInputElement;
           if (element) {
-            element.value = val;
+            element.value = text;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
             element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
             element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
           }
-        }`;
-        await this.page.evaluate(script, selector, text);
+        }, { sel: selector, text });
 
         // Wait for results to load
         await this.page.waitForTimeout(2000);

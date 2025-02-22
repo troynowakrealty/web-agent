@@ -6,7 +6,7 @@
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-A web automation system that uses AI with vision capabilities and Puppeteer to achieve user-defined goals through autonomous web navigation. Supports both OpenAI and Ollama as AI providers.
+A web automation system that uses AI with vision capabilities and Playwright to achieve user-defined goals through autonomous web navigation. Supports both OpenAI and Ollama as AI providers.
 
 ## Quick Start
 
@@ -44,8 +44,6 @@ A web automation system that uses AI with vision capabilities and Puppeteer to a
    - Enter a goal in the mission parameters (e.g., "Find me a good NFT from Rarible")
    - Click "INITIALIZE MISSION"
 
-Detailed documentation, architecture, and advanced configuration options are available below.
-
 ## Features
 
 - **Multiple AI Providers**: 
@@ -54,7 +52,188 @@ Detailed documentation, architecture, and advanced configuration options are ava
 - **Vision-Enhanced Navigation**: Uses AI vision to analyze and interact with web pages
 - **Autonomous Decision Making**: Makes intelligent decisions based on visual and textual context
 - **Real-Time Feedback**: Shows current status, steps, and visual feedback
-- **Configurable Models**: Choose between different models for both chat and vision tasks
+- **Multi-Tab Support**: Handles new tab navigation and dynamic content
+- **Smart Element Detection**: Improved DOM selection and interaction
+
+## Architecture
+
+### Core Components
+
+1. **Frontend (`app/components/Agent.tsx`)**
+   - Main interface for user interaction
+   - Displays current status, steps taken, and execution timeline
+   - Shows visual feedback of current webpage state
+   - Displays active AI provider and model information
+   - Uses the `useAgent` hook for state management and API interactions
+
+2. **Browser Service (`app/lib/browser/playwright-service.ts`)**
+   - Manages browser automation using Playwright
+   - Handles multi-tab navigation and synchronization
+   - Provides high-level browser control methods
+   - Manages page lifecycle and cleanup
+   - Features:
+     - Automatic new tab detection and switching
+     - Improved element interaction stability
+     - Better handling of dynamic content
+     - Robust error recovery
+
+3. **DOM Service (`app/lib/browser/dom-service.ts`)**
+   - Smart element detection and interaction
+   - Maintains element state across page changes
+   - Features:
+     - Dynamic element highlighting
+     - Automatic tab synchronization
+     - Improved element visibility detection
+     - Better handling of overlays and modals
+
+4. **Action Executor (`app/lib/actions/executor.ts`)**
+   - Executes navigation actions
+   - Coordinates between browser and DOM services
+   - Handles action validation and error recovery
+   - Features:
+     - Improved action validation
+     - Better error handling
+     - State preservation across actions
+
+5. **AI Providers**
+   - Modular provider system supporting multiple AI backends
+   - Each provider implements a common interface:
+     ```typescript
+     interface AIProvider {
+       chat(messages: ChatMessage[]): Promise<string>;
+       chatWithVision(messages: ChatMessage[], imageBase64: string): Promise<string>;
+     }
+     ```
+   - Supported providers:
+     - **OpenAI Provider**: Uses GPT-4V for vision tasks
+     - **Ollama Provider**: Uses local models with vision capabilities
+
+### Navigation Flow
+
+1. **Initialization**
+   ```typescript
+   // Initialize browser
+   await playwrightService.initialize();
+   
+   // Create browser context for tab management
+   const context = await browser.newContext();
+   
+   // Set up new tab handling
+   context.on('page', async (page) => {
+     // Handle new tab
+     await page.waitForLoadState();
+     // Update current page
+   });
+   ```
+
+2. **Element Interaction**
+   ```typescript
+   // Smart element detection
+   const element = await page.waitForSelector(selector, {
+     state: 'visible',
+     timeout: 10000
+   });
+   
+   // Stable clicking with retry
+   try {
+     await element.click({ timeout: 10000, force: false });
+   } catch {
+     // Fall back to JavaScript click
+     await page.evaluate((sel) => {
+       document.querySelector(sel)?.click();
+     }, selector);
+   }
+   ```
+
+3. **State Management**
+   ```typescript
+   // Get current page state
+   const state = await domService.getPageState();
+   
+   // Format elements for AI
+   const elements = await domService.getFormattedElements();
+   
+   // Take screenshot
+   const screenshot = await page.screenshot();
+   ```
+
+### Error Handling
+
+1. **Browser Level**
+   - Automatic recovery from crashes
+   - Tab synchronization maintenance
+   - Resource cleanup
+   - Session state preservation
+
+2. **DOM Level**
+   - Element validation before interaction
+   - Visibility and interactivity checks
+   - Dynamic content handling
+   - Modal and overlay detection
+
+3. **Action Level**
+   - Pre-action validation
+   - Post-action verification
+   - Error recovery strategies
+   - State rollback capabilities
+
+## Configuration
+
+### Browser Configuration
+```bash
+# Browser viewport settings
+BROWSER_WIDTH=1280
+BROWSER_HEIGHT=800
+
+# Navigation timeouts (in milliseconds)
+NAVIGATION_TIMEOUT=30000
+NETWORK_IDLE_TIMEOUT=10000
+
+# Element interaction settings
+CLICK_TIMEOUT=10000
+ELEMENT_WAIT_TIMEOUT=10000
+```
+
+### Development Features
+```bash
+# Enable detailed logging
+ENABLE_LOGGING=true
+
+# Save screenshots to disk
+ENABLE_SCREENSHOTS=true
+
+# Directory paths
+SCREENSHOT_DIR=screenshots
+LOG_DIR=logs
+```
+
+## Contributing
+
+This project welcomes contributions! Some areas for improvement:
+
+1. **Enhanced Navigation**
+   - Better dynamic content handling
+   - Improved modal interaction
+   - Smarter tab management
+   - Form handling improvements
+
+2. **AI Integration**
+   - Better context preservation
+   - Improved decision making
+   - Enhanced visual understanding
+   - More efficient prompting
+
+3. **Error Handling**
+   - Better recovery strategies
+   - Improved state preservation
+   - More robust cleanup
+   - Better error reporting
+
+4. **Performance**
+   - Faster element detection
+   - Better resource management
+   - Reduced memory usage
+   - Improved screenshot handling
 
 ## License
 
@@ -76,220 +255,6 @@ Under the following terms:
 - Disclose source code of your version
 
 The GPL-3.0 license ensures that all versions of the software remain free and open source.
-
-## Architecture
-
-### Core Components
-
-1. **Frontend (`app/components/Agent.tsx`)**
-   - Main interface for user interaction
-   - Displays current status, steps taken, and execution timeline
-   - Shows visual feedback of current webpage state
-   - Displays active AI provider and model information
-   - Uses the `useAgent` hook for state management and API interactions
-
-2. **Agent Hook (`app/hooks/useAgent.ts`)**
-   - Central state management for the agent
-   - Manages:
-     - Current goal
-     - Navigation steps
-     - Processing status
-     - Error handling
-     - Completion state
-     - Screenshot data
-   - Provides:
-     - `startMission`: Initiates a new goal
-     - `reset`: Clears current state
-
-3. **AI Providers**
-   - Modular provider system supporting multiple AI backends
-   - Each provider implements a common interface:
-     ```typescript
-     interface AIProvider {
-       chat(messages: ChatMessage[]): Promise<string>;
-       chatWithVision(messages: ChatMessage[], imageBase64: string): Promise<string>;
-     }
-     ```
-   - Supported providers:
-     - **OpenAI Provider**: Uses GPT-4V for vision tasks
-     - **Ollama Provider**: Uses local models with vision capabilities
-
-4. **API Endpoint (`app/api/agent/route.ts`)**
-   - Handles step execution and decision making
-   - Three-phase process:
-     1. **Vision Phase**: Takes screenshots of current page state
-     2. **Decision Phase**: Uses AI with vision to analyze and determine next step
-     3. **Execution Phase**: Uses Puppeteer to execute the step
-
-### Step Execution Flow
-
-1. **Step Types**
-   ```typescript
-   interface Step {
-     type: 'goto' | 'click' | 'complete';
-     url?: string;
-     elementText?: string;
-     description: string;
-     selector?: string;
-   }
-   ```
-
-2. **Vision-Enhanced Navigation**
-   - Takes full-page screenshots after each step
-   - Sends screenshots to AI for visual analysis
-   - Makes decisions based on actual visible elements
-   - Ensures accurate element selection and interaction
-
-3. **Element Finding Strategy**
-   - Vision-based verification of element existence
-   - Primary: Exact text match on clickable elements
-   - Secondary: Selector-based finding
-   - Fallback: Partial text match
-   - Ensures elements are:
-     - Visible in the current view
-     - Actually clickable
-     - Not container elements
-
-4. **Navigation Handling**
-   - Supports both direct URL navigation and SPA routing
-   - Waits for network requests to complete
-   - Verifies navigation success through URL changes
-   - Takes screenshots to confirm page state
-
-## Technical Details
-
-### GPT-4 Vision Integration
-
-1. **System Message**
-   - Provides context about current state
-   - Includes screenshot of current page
-   - Defines strict JSON response format
-   - Includes guidelines for element selection
-
-2. **Screenshot Processing**
-   - Takes full-page screenshots
-   - Converts to base64 for API transmission
-   - Stores locally for verification
-   - Ensures page is fully loaded before capture
-
-3. **Response Format**
-   ```json
-   // For navigation
-   {
-     "type": "goto",
-     "url": "full URL",
-     "description": "reason"
-   }
-
-   // For clicking
-   {
-     "type": "click",
-     "elementText": "exact text",
-     "selector": "CSS selector",
-     "description": "reason"
-   }
-
-   // For completion
-   {
-     "type": "complete",
-     "description": "reason"
-   }
-   ```
-
-### Puppeteer Implementation
-
-1. **Browser Setup**
-   - Headless mode
-   - 1280x800 viewport
-   - Network request monitoring
-   - Screenshot capabilities
-
-2. **Element Interaction**
-   ```typescript
-   // Element finding logic
-   const elements = document.querySelectorAll('a, button, [role="button"]');
-   const element = elements.find(el => 
-     el.textContent?.trim() === text && 
-     window.getComputedStyle(el).display !== 'none'
-   );
-   ```
-
-3. **Navigation Handling**
-   ```typescript
-   // Wait for navigation
-   await page.waitForNetworkIdle({ timeout: 10000 });
-   
-   // Take screenshot after navigation
-   const screenshot = await takeScreenshot(page);
-   ```
-
-## State Management
-
-1. **Agent State Interface**
-   ```typescript
-   interface AgentState {
-     goal: string | null;
-     currentUrl: string | null;
-     steps: Step[];
-     isProcessing: boolean;
-     error: string | null;
-     isComplete: boolean;
-     screenshot: string | null;
-   }
-   ```
-
-2. **Response Interface**
-   ```typescript
-   interface AgentResponse {
-     nextStep: Step;
-     currentUrl: string;
-     error?: string;
-     isComplete: boolean;
-     screenshot: string;
-   }
-   ```
-
-## Configuration
-
-The system can be configured using environment variables. Copy `.env.example` to `.env` and adjust the values:
-
-### AI Provider Configuration
-```bash
-# Choose AI provider: 'openai' or 'ollama'
-AI_PROVIDER=openai
-
-# OpenAI Configuration (if using OpenAI provider)
-OPENAI_API_KEY=your-api-key-here
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_VISION_MODEL=gpt-4-vision-preview
-
-# Ollama Configuration (if using Ollama provider)
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1
-OLLAMA_VISION_MODEL=llava
-```
-
-### Development Features
-```bash
-# Enable detailed logging (default: false)
-ENABLE_LOGGING=false
-# Enable saving screenshots to disk (default: false)
-ENABLE_SCREENSHOTS=false
-# Directory for saving screenshots (default: screenshots)
-SCREENSHOT_DIR=screenshots
-# Directory for saving logs (default: logs)
-LOG_DIR=logs
-```
-
-### Browser Configuration
-```bash
-# Browser viewport settings
-BROWSER_WIDTH=1280
-BROWSER_HEIGHT=800
-# Navigation timeouts (in milliseconds)
-NAVIGATION_TIMEOUT=30000
-NETWORK_IDLE_TIMEOUT=10000
-```
 
 ## Development Mode
 
