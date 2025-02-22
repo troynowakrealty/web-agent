@@ -89,37 +89,21 @@ export function useAgent() {
     }
 
     // Check for potential infinite loops
-    const newAction = response.nextAction;
-    const previousActions = currentState.actions;
-    const lastAction = previousActions[previousActions.length - 1];
-
-    // If we're repeating the same action type on the same element multiple times
-    if (lastAction && 
-        newAction.type === lastAction.type &&
-        'index' in newAction && 
-        'index' in lastAction && 
-        newAction.index === lastAction.index) {
-      console.log('Detected potential infinite loop - same action on same element');
-      setState(prev => ({
-        ...prev,
-        isProcessing: false,
-        error: 'Detected potential infinite loop - stopping execution'
-      }));
-      return;
-    }
+    // const newAction = response.nextAction;
+    // const previousActions = currentState.actions;
 
     // If we have too many actions of the same type in sequence
-    const recentActions = previousActions.slice(-5);
-    const sameTypeCount = recentActions.filter(a => a.type === newAction.type).length;
-    if (sameTypeCount >= 4) {
-      console.log('Detected potential infinite loop - too many actions of same type');
-      setState(prev => ({
-        ...prev,
-        isProcessing: false,
-        error: 'Detected potential infinite loop - too many repeated actions'
-      }));
-      return;
-    }
+    // const recentActions = previousActions.slice(-5);
+    // const sameTypeCount = recentActions.filter(a => a.type === newAction.type).length;
+    // if (sameTypeCount >= 4) {
+    //   console.log('Detected potential infinite loop - too many actions of same type');
+    //   setState(prev => ({
+    //     ...prev,
+    //     isProcessing: false,
+    //     error: 'Detected potential infinite loop - too many repeated actions'
+    //   }));
+    //   return;
+    // }
 
     // Update state with new action
     const newState: AgentState = {
