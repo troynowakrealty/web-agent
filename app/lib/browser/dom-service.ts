@@ -453,12 +453,15 @@ export class DOMService {
     
     // Inject a custom stable attribute so that the element reference remains stable
     const uniqueId = `stable-${Date.now()}-${index}`;
-    await page.evaluate((selector, uniqueId) => {
-      const el = document.querySelector(selector);
-      if (el) {
-        el.setAttribute('data-stable-id', uniqueId);
-      }
-    }, baseStableSelector, uniqueId);
+    await page.evaluate(
+      ({ selector, id }) => {
+        const el = document.querySelector(selector);
+        if (el) {
+          el.setAttribute('data-stable-id', id);
+        }
+      },
+      { selector: baseStableSelector, id: uniqueId }
+    );
     
     // Use the custom attribute for a stable selector
     const stableSelector = `[data-stable-id="${uniqueId}"]`;
