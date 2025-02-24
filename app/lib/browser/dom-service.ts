@@ -265,52 +265,144 @@ export class DOMService {
     });
   }
 
-  async scrollToElement(index: number) {
-    logger.log('info', { message: 'Scrolling to element', data: { index } });
-    const page = await this.getCurrentPage();
-    const state = await this.getPageState(false);
-    const element = state.elements.find(e => e.index === index);
+  private createStableSelector(attributes: Record<string, string>): string {
+    // Create a selector using stable attributes, prioritizing unique identifiers
+    const priorityAttrs = ['id', 'href', 'name', 'class', 'role'];
+    const selectorParts: string[] = [];
     
-    if (element && element.boundingBox) {
-      await page.evaluate(({ x, y }) => {
-        window.scrollTo({
-          left: x,
-          top: y,
-          behavior: 'smooth'
-        });
-      }, {
-        x: element.boundingBox.x,
-        y: element.boundingBox.y
-      });
-
-      // Wait for scroll to complete
-      await page.waitForTimeout(500);
-      logger.log('info', { message: 'Scrolled to element position', data: element.boundingBox });
-    } else {
-      logger.error({
-        message: 'Element not found for scrolling',
-        data: { index }
-      });
+    // First try unique identifiers
+    if (attributes.id) {
+      return `#${CSS.escape(attributes.id)}`;
     }
+
+    // Then try href for links (very common in web apps)
+    if (attributes.href && !attributes.href.startsWith('#')) {
+      return `a[href="${attributes.href}"]`;
+    }
+
+    // Then try combination of other stable attributes
+    for (const attr of priorityAttrs) {
+      if (attributes[attr] && attr !== 'data-element-index') {
+        selectorParts.push(`[${attr}="${attributes[attr]}"]`);
+      }
+    }
+
+    // If we have text content, use it as a fallback
+    if (attributes['text-content']) {
+      selectorParts.push(`:contains("${attributes['text-content']}")`);
+    }
+
+    return selectorParts.join('');
   }
 
   async getElementByIndex(index: number): Promise<ElementInfo | null> {
     logger.log('info', { message: 'Getting element by index', data: { index } });
     const state = await this.getPageState(false);
     const element = state.elements.find(e => e.index === index) ?? null;
+    
     if (element) {
+      // Store text content in attributes for stable selector creation
+      if (element.text) {
+        element.attributes['text-content'] = element.text;
+      }
+      
       logger.log('info', {
         message: 'Found element',
         data: {
           tag: element.tag,
           type: element.type,
-          isVisible: element.isVisible
+          isVisible: element.isVisible,
+          selector: this.createStableSelector(element.attributes)
         }
       });
     } else {
       logger.log('info', { message: 'Element not found' });
     }
     return element;
+  }
+
+  async scrollToElement(index: number, providedSelector?: string, boundingBoxOverride?: { x: number; y: number; width: number; height: number; }) {
+    logger.log('info', { message: 'Scrolling to element', data: { index } });
+    const page = await this.getCurrentPage();
+    let stableSelector: string;
+    let fallbackBox: { x: number; y: number; width: number; height: number; } | undefined;
+
+    if (providedSelector) {
+      stableSelector = providedSelector;
+      // Use the provided bounding box if available, do not re-read page state to avoid reindexing
+      fallbackBox = boundingBoxOverride;
+      if (!fallbackBox) {
+        logger.log('warn', { message: 'No fallback bounding box provided with stable selector', data: { index, selector: stableSelector } });
+      }
+    } else {
+      const element = await this.getElementByIndex(index);
+      if (!element || !element.boundingBox) {
+        logger.error({ message: 'Element not found for scrolling', data: { index } });
+        return false;
+      }
+      stableSelector = this.createStableSelector(element.attributes);
+      fallbackBox = element.boundingBox;
+    }
+
+    try {
+      // First attempt: scroll into view using the stable selector
+      await page.evaluate(async (selector) => {
+        const el = document.querySelector(selector);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return true;
+        }
+        return false;
+      }, stableSelector);
+
+      // Wait for scroll to complete
+      await page.waitForTimeout(1000);
+
+      // Verify element is visible in viewport
+      const isVisible = await page.evaluate((selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= window.innerHeight && rect.width > 0 && rect.height > 0;
+      }, stableSelector);
+
+      if (!isVisible && fallbackBox) {
+        // Fallback to absolute positioning if scrollIntoView didn't bring the element into view
+        await page.evaluate(({ x, y }) => {
+          window.scrollTo({
+            left: x,
+            top: Math.max(0, y - 100),
+            behavior: 'smooth'
+          });
+        }, fallbackBox);
+        await page.waitForTimeout(500);
+      }
+
+      // Final verification
+      const finalCheck = await page.evaluate((selector) => {
+        return document.querySelector(selector) !== null;
+      }, stableSelector);
+
+      if (!finalCheck) {
+        logger.error({
+          message: 'Element not found after scrolling',
+          data: { index, selector: stableSelector }
+        });
+        return false;
+      }
+
+      logger.log('info', {
+        message: 'Successfully scrolled to element',
+        data: { index, selector: stableSelector }
+      });
+      return true;
+    } catch (error) {
+      logger.error({
+        message: 'Error scrolling to element',
+        data: { index, error }
+      });
+      return false;
+    }
   }
 
   async validateElement(index: number): Promise<boolean> {
@@ -344,6 +436,97 @@ export class DOMService {
         });
       });
       this.highlightOverlayEnabled = false;
+    }
+  }
+
+  async clickElement(index: number): Promise<boolean> {
+    logger.log('info', { message: 'Clicking element by index', data: { index } });
+    const page = await this.getCurrentPage();
+    
+    // Get the element info once and compute base stable selector
+    const element = await this.getElementByIndex(index);
+    if (!element) {
+      logger.error({ message: 'Element not found for clicking', data: { index } });
+      return false;
+    }
+    const baseStableSelector = this.createStableSelector(element.attributes);
+    
+    // Inject a custom stable attribute so that the element reference remains stable
+    const uniqueId = `stable-${Date.now()}-${index}`;
+    await page.evaluate((selector, uniqueId) => {
+      const el = document.querySelector(selector);
+      if (el) {
+        el.setAttribute('data-stable-id', uniqueId);
+      }
+    }, baseStableSelector, uniqueId);
+    
+    // Use the custom attribute for a stable selector
+    const stableSelector = `[data-stable-id="${uniqueId}"]`;
+    
+    try {
+      // Scroll into view using our stable selector and known bounding box
+      const scrollSuccess = await this.scrollToElement(index, stableSelector, element.boundingBox);
+      if (!scrollSuccess) {
+        logger.error({ message: 'Failed to scroll to element before clicking', data: { index } });
+        return false;
+      }
+
+      // Wait for any dynamic content to settle
+      await page.waitForTimeout(500);
+
+      // If the element has target='_blank', wait for a popup window
+      if (element.attributes['target'] === '_blank') {
+        const [newPage] = await Promise.all([
+          page.waitForEvent('popup'),
+          page.click(stableSelector, { timeout: 5000, force: false })
+        ]);
+        logger.log('info', { message: 'Successfully opened new page via popup', data: { index, selector: stableSelector } });
+        // Optionally update the playwrightService with the new page if needed
+      } else {
+        // Click the element using the stable selector
+        await page.click(stableSelector, {
+          timeout: 5000,
+          force: false
+        });
+      }
+
+      logger.log('info', {
+        message: 'Successfully clicked element',
+        data: { index, selector: stableSelector }
+      });
+      return true;
+    } catch (error) {
+      // If Playwright click fails, try JavaScript click fallback
+      try {
+        const clicked = await page.evaluate((selector) => {
+          const el = document.querySelector(selector);
+          if (el && el instanceof HTMLElement) {
+            el.click();
+            return true;
+          }
+          return false;
+        }, stableSelector);
+
+        if (clicked) {
+          logger.log('info', {
+            message: 'Successfully clicked element using JS fallback',
+            data: { index, selector: stableSelector }
+          });
+          return true;
+        }
+
+        logger.error({
+          message: 'Failed to click element with both methods',
+          data: { index, selector: stableSelector }
+        });
+        return false;
+      } catch (jsError) {
+        logger.error({
+          message: 'Failed to click element',
+          data: { index, selector: stableSelector, error: jsError }
+        });
+        return false;
+      }
     }
   }
 } 
